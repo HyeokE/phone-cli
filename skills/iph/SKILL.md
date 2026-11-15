@@ -23,12 +23,14 @@ This is a real phone with the user's accounts on it. A tap cannot be taken back,
    - A tap waits for the screen to change and hold still (up to 2.5 s for the change, 5 s in all), then returns that screen: `elements[]` as `iph read` gives them. Decide the next step from those; no `iph read` needs to follow. `--no-wait` (script and MCP: `no_wait: true`) reads once right after the tap and returns no elements, for taps that change nothing, such as a keypad.
    - `screen_changed: false` after a tap means nothing visible happened within 2.5 s. Look at the returned elements before deciding what next; do not tap again on the assumption that it was lost.
    - `app_changed: true` means another app came to the front (a banner was hit, a link opened). Stop and tell the user.
+   - For `type`, `verified` only means the original field's value was read afterwards; it does not prove the intended text was entered. Inspect `value_before`, `value` (both before Return), `value_changed` (`true` / `false` / `null`) and `warning`. Empty `""` is readable; `null` is unavailable. `screen_changed` compares accessibility trees after restoring the screen keyboard, and is `null` if that comparison could not be made.
+   - An unchanged value warns with `warning.code: "value_unchanged"`, even for an identical replacement with `--clear`; masking or app behavior can also cause it. If paste seems blocked, check Settings → Apps → the app → Paste from Other Apps → Allow, without treating that cause as proven. Do not automatically retype. `--submit` withholds Return on any observation warning and returns `unknown` / `type_not_verified` / `submit_sent: false`. The input keys have already gone out: inspect before deciding to send `key("return")` separately. A clear-only command may submit if an empty value was read. `submit_sent: null` means a Return send failed and may have gone out.
 
 ## Outcomes
 
 | `outcome` | What to do |
 |---|---|
-| `done` | Continue. With `ok: false` (only `scroll --until` that did not find its target, `error.code: "not_found"`): the scrolls went out; the target is not in that direction. |
+| `done` | The command completed. Inspect observations and any `warning` before continuing; typing can complete without changing the field. With `ok: false` (only `scroll --until` that did not find its target, `error.code: "not_found"`): the scrolls went out; the target is not in that direction. |
 | `not_sent` | Nothing reached the phone. Fix the cause (`error.code`, `error.hint`) and try again. |
 | `unknown` | Input may have reached the phone. Do not send it again: a second tap on a button that did work is a double order or a double message. Run `iph read` and look. |
 

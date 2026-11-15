@@ -115,7 +115,7 @@ enum Cmd {
         /// Replace what the field holds.
         #[arg(long)]
         clear: bool,
-        /// Press Return afterwards.
+        /// Press Return if the input's effect was observed; otherwise withhold it.
         #[arg(long)]
         submit: bool,
     },

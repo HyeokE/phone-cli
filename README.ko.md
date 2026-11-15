@@ -160,6 +160,20 @@ cargo install --path .        # ~/.cargo/bin/iph
 
 터치 신호는 폰이 받았다고 답하지 않습니다. 그래서 `sent`(보냄)와 `verified`(보낸 뒤 화면을 다시 읽음)를 나누고, 탭 · 입력 · 스크롤 뒤에는 화면을 다시 읽어 `screen_changed`를 넣습니다. 다른 앱이 앞으로 나왔으면 `app_changed: true`가 붙습니다.
 
+`type`의 `ok: true` · `outcome: "done"`은 명령을 끝까지 실행했다는 뜻이고, `sent: true`는 입력 키를 보냈다는 뜻입니다. **`verified: true`는 기존처럼 입력 후 칸의 값을 다시 읽었다는 뜻이며, 원하는 글이 입력되었다는 보장은 아닙니다.** 앱이 붙여넣은 글을 서식 · 가림 · 자동 고침 · 자동 지우기로 바꿀 수 있어 요청 문자열과의 완전 일치를 요구하지 않습니다.
+
+| `type` 결과 | 관측 내용 |
+|---|---|
+| `value_before`, `value` | 원래 입력칸의 입력 전 값과 입력 후 값(**Return 전**). `""`은 읽을 수 있는 빈 문자열, `null`은 읽기 불가입니다. 값의 공백은 보존하고, 다른 칸으로 포커스가 옮겨가도 그 칸의 값을 대신 보고하지 않습니다. |
+| `value_changed` | 두 값을 읽었으면 `true` · `false`, 비교할 수 없으면 `null`입니다. |
+| `screen_changed` | 입력 전과 화면 키보드를 복구한 후(Return을 보냈다면 그 후)의 접근성 트리를 실제로 비교합니다. 마지막 화면을 읽지 못하면 `null`입니다. 칸의 값 변경과 화면 변경은 별도 관측이며, 스크린샷의 픽셀을 비교하는 것은 아닙니다. |
+| `warning` | 확인이 필요하면 `{code, message, hint}`가 붙습니다: `value_unchanged`(값 불변), `value_unreadable`(입력 후 읽기 불가), `value_change_unknown`(입력 전 값이 없어 비교 불가), `value_empty`(글을 보냈는데 빈 값), `clear_not_observed`(지우기 후에도 값이 남음). `--submit`이 없으면 경고가 있어도 기존 `ok: true` · `outcome: "done"`을 유지합니다. |
+| `submit_sent` | Return을 보냈으면 `true`, 요청하지 않았거나 보류했으면 `false`입니다. Return 전송 중 실패하여 나갔을 수 있으면 `null`입니다. |
+
+값이 그대로면 붙여넣기가 막혔을 수 있지만, 가림 · 앱 동작 · `--clear`로 같은 글을 다시 넣은 경우도 가능합니다. `iph read`나 스크린샷으로 확인하고 **자동으로 재입력하지 마세요.** 붙여넣기가 막힌 것으로 보이면 설정 → 앱 → 해당 앱 → **다른 앱에서 붙여넣기 → 허용**을 확인하세요. 값 불변만으로 권한 거부를 확정할 수는 없습니다.
+
+**`--submit`은 경고가 있으면 Return을 보류**하고 `ok: false` · `outcome: "unknown"` · `error.code: "type_not_verified"` · `submit_sent: false`(종료 코드 2)를 돌려줍니다. 붙여넣기/지우기 키는 이미 나갔습니다. 스크립트와 batch도 여기서 멈추며, 스크립트에서 오류를 잡아도 후속 호출은 폰에 가지 않습니다. 화면을 확인한 뒤 별도로 `iph key return`을 보낼지 판단하세요. `type` 재실행은 중복 입력을 일으킬 수 있습니다. `--clear --submit`으로 같은 글을 바꿔 넣어 값이 같아도 보류하는 의도적인 변경입니다. 지우기만 하는 경우(`iph type "" --clear`)는 빈 값을 읽으면 원래 비어 있었어도 제출할 수 있습니다. CLI · MCP · 스크립트가 같은 결과를 쓰고, batch의 type 단계와 `--human` 표시에도 관측값과 경고가 남습니다.
+
 ## 설정
 
 ```toml

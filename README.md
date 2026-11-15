@@ -157,6 +157,20 @@ The exit code is 0 only with `ok: true`. `batch`, `script` and `run` follow the 
 
 The phone does not acknowledge touch reports. So results separate `sent` from `verified` (the screen was read again afterwards), and taps, typing and scrolls report `screen_changed`. When another app came to the front, `app_changed: true` is added.
 
+For `type`, `ok: true` / `outcome: "done"` means the command completed, and `sent: true` means the input keys were sent. **`verified: true` keeps its meaning of reading the field's value afterwards; it does not prove the intended text was entered.** Apps can format, mask, correct or clear pasted text, so no exact match with the requested text is required.
+
+| `type` result | Observation |
+|---|---|
+| `value_before`, `value` | The original field's value before input and after input, **before Return**. `""` is a readable empty string; `null` means unavailable. Whitespace in values is preserved. A different focused field is never substituted. |
+| `value_changed` | `true` / `false` when both values were read; `null` when they could not be compared. |
+| `screen_changed` | Actual comparison of the accessibility trees before input and after restoring the on-screen keyboard (and after Return, if sent). `null` when the final screen could not be read. A field change and a screen change are separate observations, and this does not compare screenshot pixels. |
+| `warning` | `{code, message, hint}` when the effect needs inspection: `value_unchanged`, `value_unreadable`, `value_change_unknown`, `value_empty` (nonempty input but empty result), or `clear_not_observed`. Without `--submit`, these warnings preserve `ok: true` / `outcome: "done"`. |
+| `submit_sent` | `true` when Return was sent, `false` when not requested or withheld; `null` if sending Return failed and it may have gone out. |
+
+An unchanged value may mean paste was blocked, but can also come from masking, app behavior or replacing text with identical text using `--clear`. Check with `iph read` or a screenshot; **do not automatically retype**. If paste appears blocked, check Settings → Apps → the target app → **Paste from Other Apps → Allow**. The observation does not establish that permission was denied.
+
+**`--submit` withholds Return whenever there is a warning**, returning `ok: false`, `outcome: "unknown"`, `error.code: "type_not_verified"`, `submit_sent: false` (exit code 2). The paste/clear keys have already gone out. This also stops scripts and batches, including scripts that catch the error. Inspect before deciding to submit separately with `iph key return`; re-running `type` could duplicate input. This intentionally also holds an identical replacement with `--clear --submit`. Clear-only (`iph type "" --clear`) may submit when the field is observed empty, even if it was empty already. CLI, MCP and script calls share these fields; `batch` keeps them in each type step, and `--human` shows observations and warnings.
+
 ## Configuration
 
 ```toml
