@@ -561,7 +561,9 @@ pub trait Steps: Phone + Sized {
     async fn wait_gone(&mut self, sel: &Selector, timeout: Duration) -> Res<()> {
         let started = Instant::now();
         let full = sel.needs_identifier();
-        let mut fresh = Fresh::MaxAge(reuse());
+        // Always a new reading: a cached one from before the element came
+        // up would report it gone at once.
+        let fresh = Fresh::Force;
         loop {
             let (_, screen) = self.screen(fresh, full, BuildOptions::default()).await?;
             let found = dedupe_targets(sel.find(&screen));
@@ -576,7 +578,6 @@ pub trait Steps: Phone + Sized {
                 .with("element", brief(found[0]))
                 .with("screen_summary", screen.summary(12)));
             }
-            fresh = Fresh::Force;
         }
     }
 
