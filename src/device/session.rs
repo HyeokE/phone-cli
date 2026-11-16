@@ -88,6 +88,15 @@ pub(crate) enum AxStall {
     EmptyOnly,
 }
 
+const LOCK_SCREEN_APP: &str = "SleepLockScreen";
+
+/// A reading that holds nothing but the lock screen's application element.
+pub(crate) fn lock_screen_only(screen: &Screen) -> bool {
+    screen.apps.len() == 1
+        && screen.apps[0].name.as_deref() == Some(LOCK_SCREEN_APP)
+        && screen.elements.len() <= 1
+}
+
 /// `empty` and `unparsed`: answers of each kind during the failed reading.
 /// Answers that were not understood point at the parser, not the daemon.
 pub(crate) fn ax_stall(empty: u64, unparsed: u64) -> Option<AxStall> {
@@ -378,6 +387,20 @@ impl Session {
         Ok(pid)
     }
 
+    /// On an unlocked phone the accessibility service can keep reporting
+    /// `SleepLockScreen.app` as the only application on screen while a
+    /// screenshot shows another app in front (2026-11-16, iOS 27.3: TestFlight
+    /// in front for many minutes). Locking and unlocking, a new `axauditd`,
+    /// and ending `SleepLockScreen` (the phone starts it again at once) did
+    /// not change it, so iph cannot read or tap by label until the phone
+    /// itself recovers. True when lockdown says the phone is unlocked.
+    async fn unlocked_by_lockdown(&self) -> bool {
+        match conn::route(&self.udid).await {
+            Ok(r) => conn::passcode_locked(&*r.provider).await == Some(false),
+            Err(_) => false,
+        }
+    }
+
     /// One reading of the screen as the raw dump plus its sequence number.
     /// `full` waits for the second pass (identifiers).
     pub async fn dump(&mut self, fresh: Fresh, full: bool) -> Res<(u64, Arc<Dump>)> {
@@ -578,12 +601,28 @@ impl Session {
     pub async fn screen(&mut self, fresh: Fresh, full: bool, opts: BuildOptions) -> Res<(u64, Screen)> {
         let mut fresh = fresh;
         let mut last = None;
+        let mut lock_retried = false;
         // A reading taken while an app is coming to the front can lack the
         // application's frame; look again rather than hand out a screen
         // without a size.
         for _ in 0..3 {
             let (seq, dump) = Box::pin(self.dump(fresh, full)).await?;
             let screen = Screen::build(&dump, opts);
+            if lock_screen_only(&screen) && self.unlocked_by_lockdown().await {
+                if !lock_retried {
+                    lock_retried = true;
+                    fresh = Fresh::Force;
+                    continue;
+                }
+                return Err(Fail::not_sent(
+                    "ax_lock_screen_stuck",
+                    "the phone is unlocked, but its accessibility service reports only SleepLockScreen",
+                )
+                .hint(t(
+                    "폰은 잠금 해제 상태인데 화면 읽기 서비스가 잠금 화면(SleepLockScreen)만 보고합니다. 폰을 재시동하거나 수면 집중 모드를 끈 뒤 다시 시도하세요. 그동안 스크린샷(`iph screenshot`)은 정상입니다.",
+                    "The phone is unlocked, but its screen-reading service reports only the lock screen (SleepLockScreen). Restart the phone or turn off the Sleep Focus, then try again. Screenshots (`iph screenshot`) still work.",
+                )));
+            }
             self.ax_restart_unhelpful = false;
             self.system_in_front = crate::dnd::system_ui(&screen);
             if screen.width > 0.0 && screen.height > 0.0 {
@@ -810,7 +849,28 @@ impl Session {
 
 #[cfg(test)]
 mod tests {
-    use super::{AxStall, ax_stall, plain_path};
+    use super::{AxStall, ax_stall, lock_screen_only, plain_path};
+    use crate::ax::tree::{AppInfo, Screen};
+
+    fn screen_of(names: &[&str]) -> Screen {
+        Screen {
+            width: 402.0,
+            height: 874.0,
+            apps: names
+                .iter()
+                .enumerate()
+                .map(|(i, n)| AppInfo { pid: i as i64 + 1, name: Some((*n).into()), bundle_id: None })
+                .collect(),
+            elements: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn only_the_lock_screen_application_counts_as_a_stuck_lock_screen() {
+        assert!(lock_screen_only(&screen_of(&["SleepLockScreen"])));
+        assert!(!lock_screen_only(&screen_of(&["TestFlight"])));
+        assert!(!lock_screen_only(&screen_of(&["SleepLockScreen", "SpringBoard"])));
+    }
 
     #[test]
     fn paths_compare_across_spellings() {
