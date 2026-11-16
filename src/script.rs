@@ -624,10 +624,8 @@ impl PhoneHost<'_> {
     }
 
     async fn dispatch(&mut self, cmd: &str, args: Value) -> Res {
-        if NEEDS_APP.contains(&cmd)
-            && let Some(f) = self.session.unexpected_app(self.state.expected_pid)
-        {
-            return Err(f);
+        if NEEDS_APP.contains(&cmd) {
+            Box::pin(self.session.check_expected_app(self.state.expected_pid)).await?;
         }
         match cmd {
             "read" => Box::pin(self.session.cmd_read(parse_args(&args)?)).await,

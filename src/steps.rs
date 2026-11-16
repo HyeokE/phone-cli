@@ -1048,6 +1048,19 @@ impl Session {
         ))
     }
 
+    /// Reconnection discards the old accessibility subscription. Re-read before
+    /// using a remembered launch guard, so it cannot silently become a no-op.
+    pub(crate) async fn check_expected_app(&mut self, expected_pid: Option<i64>) -> Res<()> {
+        self.refresh_connection();
+        if expected_pid.is_some() && self.ax.as_ref().is_none_or(|ax| ax.is_closed()) {
+            Box::pin(self.cmd_read(Default::default())).await?;
+        }
+        match self.unexpected_app(expected_pid) {
+            Some(f) => Err(f),
+            None => Ok(()),
+        }
+    }
+
     /// A failure when the latest reading shows another app in front than the
     /// one this run launched (a notification was tapped, a link opened …).
     pub(crate) fn unexpected_app(&self, expected_pid: Option<i64>) -> Option<Fail> {
@@ -1250,7 +1263,7 @@ impl Session {
             // for a moment (a Face ID prompt); every other step needs the app
             // in front.
             if kind != "wait_for"
-                && let Some(f) = self.unexpected_app(expected_pid)
+                && let Err(f) = Box::pin(self.check_expected_app(expected_pid)).await
             {
                 return Err(step_failure(index, raw, f, kind, &records, &outputs, 0));
             }

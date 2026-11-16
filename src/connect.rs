@@ -1,13 +1,16 @@
 //! Register a paired phone's direct address when usbmuxd discovery is empty.
 
-use std::{future::Future, io::Write, net::IpAddr, path::Path, time::Duration};
+use std::{future::Future, path::Path};
 
-use idevice::{IdeviceService, lockdown::LockdownClient, provider::IdeviceProvider};
 use serde::Deserialize;
 
 use crate::{
     client,
-    device::conn,
+    device::{
+        address::{self, WifiAddress},
+        conn,
+        identity::{self, Identity},
+    },
     fields,
     i18n::t,
     paths,
@@ -19,89 +22,13 @@ use crate::{
 pub struct Args {
     /// The iPhone's IP address, shown in Settings > Wi-Fi > the network's info.
     #[arg(long)]
-    pub ip: IpAddr,
+    pub ip: WifiAddress,
 }
 
-pub(crate) struct Identity {
-    pub udid: String,
-    pub ios_version: Option<String>,
-    pub model: Option<String>,
-}
-
-/// Read identity through a paired session, not an unauthenticated GetValue.
-pub(crate) async fn identify(provider: &dyn IdeviceProvider) -> Res<Identity> {
-    let result = tokio::time::timeout(Duration::from_secs(25), async {
-        let mut phone = LockdownClient::connect(provider).await.map_err(|e| {
-            Fail::not_sent(
-                "wifi_connect_failed",
-                format!("cannot reach the iPhone's lockdown service: {e:?}"),
-            )
-        })?;
-        let pair = provider.get_pairing_file().await.map_err(|e| {
-            Fail::not_sent(
-                "not_paired",
-                format!("cannot read the pairing record: {e:?}"),
-            )
-        })?;
-        phone.start_session(&pair).await.map_err(|e| {
-            Fail::not_sent(
-                "wifi_session_failed",
-                format!("cannot start a paired Wi-Fi session: {e:?}"),
-            )
-        })?;
-        let identity = phone.get_value(Some("UniqueDeviceID"), None).await;
-        let udid = identity
-            .ok()
-            .and_then(|v| v.into_string())
-            .filter(|v| !v.is_empty());
-        // Model/version are optional metadata; neither substitutes for identity.
-        let version = phone
-            .get_value(Some("ProductVersion"), None)
-            .await
-            .ok()
-            .and_then(|v| v.into_string());
-        let model = phone
-            .get_value(Some("ProductType"), None)
-            .await
-            .ok()
-            .and_then(|v| v.into_string());
-        let _ = tokio::time::timeout(Duration::from_secs(2), phone.stop_session()).await;
-        let udid = udid.ok_or_else(|| {
-            Fail::not_sent(
-                "wifi_identity_unavailable",
-                "the paired session did not return a device UDID",
-            )
-        })?;
-        Ok(Identity {
-            udid,
-            ios_version: version,
-            model,
-        })
-    })
-    .await;
-    result.unwrap_or_else(|_| {
-        Err(Fail::not_sent(
-            "wifi_connect_failed",
-            "direct Wi-Fi identity check timed out",
-        ))
-    })
-}
-
-fn validate(udid: &str, ip: IpAddr) -> Res<()> {
-    if udid.is_empty()
-        || udid.len() > 128
-        || !udid.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
-    {
+fn validate(udid: &str, _ip: WifiAddress) -> Res<()> {
+    if !address::valid_udid(udid) {
         return Err(Fail::invalid(
             "UDID must contain only ASCII letters, digits and hyphens",
-        ));
-    }
-    if ip.is_unspecified()
-        || ip.is_multicast()
-        || matches!(ip, IpAddr::V6(v) if v.is_unicast_link_local())
-    {
-        return Err(Fail::invalid(
-            "use the iPhone's IPv4 address or a non-link-local IPv6 address",
         ));
     }
     Ok(())
@@ -111,7 +38,7 @@ fn validate(udid: &str, ip: IpAddr) -> Res<()> {
 async fn register_at(
     state: &Path,
     udid: &str,
-    ip: IpAddr,
+    ip: WifiAddress,
     probe: impl Future<Output = Res<Identity>>,
 ) -> Res {
     validate(udid, ip)?;
@@ -124,25 +51,12 @@ async fn register_at(
         .with("expected_udid", udid)
         .with("observed_udid", identity.udid));
     }
-    let path = state.join(format!("{udid}.addr"));
-    let temporary = state.join(format!("{udid}.addr.{}.tmp", uuid::Uuid::new_v4()));
-    let save = (|| -> std::io::Result<()> {
-        paths::ensure_private_dir(state)?;
-        let mut file = paths::private_file()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
-        file.write_all(ip.to_string().as_bytes())?;
-        drop(file);
-        std::fs::rename(&temporary, &path)
-    })();
-    if let Err(e) = save {
-        let _ = std::fs::remove_file(&temporary);
-        return Err(Fail::not_sent(
+    address::save(state, udid, ip).map_err(|e| {
+        Fail::not_sent(
             "connection_save_failed",
             format!("cannot save the verified address: {e}"),
-        ));
-    }
+        )
+    })?;
     Ok(fields! {
         "udid": udid, "connection": "wifi", "source": "direct_ip",
         "ip": ip.to_string(), "paired": true, "udid_verified": true, "address_saved": true,
@@ -160,7 +74,7 @@ pub async fn run(udid: &str, args: Args) -> Res {
                 format!("cannot get this phone's pairing record: {e:#}"),
             )
         })?;
-        identify(&provider).await.map_err(|f| f.hint(t(
+        identity::identify(&provider).await.map_err(|f| f.hint(t(
             "아이폰을 깨워 잠금을 풀고 IP 주소를 확인하세요. 처음 연결한다면 USB로 연결해 이 컴퓨터를 신뢰해야 합니다.",
             "Wake and unlock the iPhone, confirm its IP address, and pair by USB first if needed.",
         )))
@@ -190,8 +104,8 @@ mod tests {
     async fn only_a_matching_paired_probe_replaces_the_saved_address() {
         let dir = std::env::temp_dir().join(format!("iph-direct-{}", uuid::Uuid::new_v4()));
         let udid = "TEST-PHONE";
-        let old: IpAddr = "192.0.2.1".parse().unwrap();
-        let new: IpAddr = "192.0.2.2".parse().unwrap();
+        let old: WifiAddress = "192.0.2.1".parse().unwrap();
+        let new: WifiAddress = "192.0.2.2".parse().unwrap();
         let saved = dir.join(format!("{udid}.addr"));
         let v = register_at(&dir, udid, old, async { Ok(identity(udid)) })
             .await
@@ -222,19 +136,12 @@ mod tests {
     #[tokio::test]
     async fn invalid_target_is_rejected_before_probing_or_creating_files() {
         let dir = std::env::temp_dir().join(format!("iph-direct-{}", uuid::Uuid::new_v4()));
-        for (udid, ip) in [
-            ("../escape", "192.0.2.1"),
-            ("PHONE", "0.0.0.0"),
-            ("PHONE", "224.0.0.251"),
-            ("PHONE", "fe80::1"),
-        ] {
-            let result = register_at(&dir, udid, ip.parse().unwrap(), async {
-                panic!("must not probe")
-            })
-            .await;
-            assert_eq!(result.unwrap_err().code, "invalid_argument");
-            assert!(!dir.exists());
-        }
+        let result = register_at(&dir, "../escape", "192.0.2.1".parse().unwrap(), async {
+            panic!("must not probe")
+        })
+        .await;
+        assert_eq!(result.unwrap_err().code, "invalid_argument");
+        assert!(!dir.exists());
     }
 
     #[tokio::test]

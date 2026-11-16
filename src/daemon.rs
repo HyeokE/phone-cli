@@ -57,6 +57,7 @@ fn log(msg: &str) {
 }
 
 async fn dispatch(s: &mut Session, cmd: &str, args: &Value) -> Res {
+    s.refresh_connection();
     match cmd {
         "read" => Box::pin(s.cmd_read(parse_args(args)?)).await,
         "find" => Box::pin(s.cmd_find(parse_args(args)?)).await,

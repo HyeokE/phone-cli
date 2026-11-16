@@ -284,7 +284,17 @@ impl Session {
         self.tunnel.as_ref().map(|t| t.connection.as_str())
     }
 
+    /// Only invalidate cached connections; commands decide what to do next.
+    /// No input is replayed when a Wi-Fi heartbeat ends.
+    pub(crate) fn refresh_connection(&mut self) {
+        if self.tunnel.as_ref().is_some_and(Tunnel::is_closed) {
+            crate::events::record("connection", "closed", 0, serde_json::json!({ "udid": self.udid, "reason": "heartbeat ended" }));
+            self.reset();
+        }
+    }
+
     pub async fn ensure_tunnel(&mut self) -> Res<&mut Tunnel> {
+        self.refresh_connection();
         if self.tunnel.is_none() {
             // One tunnel at a time: let go of an abandoned one first.
             self.sweep().await;
@@ -301,6 +311,7 @@ impl Session {
     }
 
     async fn ensure_ax(&mut self) -> Res<()> {
+        self.refresh_connection();
         if self.ax.as_ref().is_some_and(|a| a.is_closed()) {
             // The accessibility connection died; the tunnel may be gone too.
             self.reset();
@@ -595,6 +606,7 @@ impl Session {
     pub async fn ensure_input(&mut self) -> Res<&mut InputSession> {
         // A media stream that stopped delivering packets no longer holds the
         // phone's HID gate open.
+        self.refresh_connection();
         let stale = self
             .input
             .as_ref()

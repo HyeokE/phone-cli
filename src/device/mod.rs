@@ -1,4 +1,7 @@
 pub mod ax;
+pub mod address;
+pub(crate) mod discovery;
+pub(crate) mod identity;
 pub mod conn;
 pub mod input;
 pub mod session;
