@@ -589,8 +589,13 @@ pub fn snapshot_to_tree(answer: &Value) -> Result<XmlNode, String> {
     Ok(hierarchy)
 }
 
+/// Deepest snapshot accepted. Real view trees stay well under 100 levels;
+/// the bound keeps the recursion below inside a 2 MB thread stack even in
+/// debug builds (512 overflowed `cargo test` on macOS CI).
+const MAX_SNAPSHOT_DEPTH: usize = 200;
+
 fn node_from(v: &Value, depth: usize) -> Result<XmlNode, String> {
-    if depth > 512 {
+    if depth > MAX_SNAPSHOT_DEPTH {
         return Err("the snapshot is nested too deep".into());
     }
     let s = |k: &str| v[k].as_str().unwrap_or("").to_string();
@@ -1022,7 +1027,7 @@ mod tests {
     fn bad_snapshots_are_refused() {
         assert!(snapshot_to_tree(&json!({"package": "x"})).is_err());
         let mut deep = json!({"i": 0});
-        for _ in 0..600 {
+        for _ in 0..MAX_SNAPSHOT_DEPTH + 10 {
             deep = json!({"i": 0, "c": [deep]});
         }
         assert!(
