@@ -48,7 +48,7 @@ fn tools() -> Vec<Value> {
         tool(
             "iph_connect",
             "Verify and save the selected paired iPhone's IP address when automatic discovery fails. Requires prior USB trust on this computer. Checks a paired session and reported UDID before saving. Subsequent tools and scripts use the address; this does not establish developer-service readiness or repair Apple's discovery list.",
-            json!({ "ip": { "type": "string", "description": "The iPhone's IPv4 or non-link-local IPv6 address from Settings > Wi-Fi > network info." } }),
+            json!({ "ip": { "type": "string", "description": "The iPhone's IPv4 or IPv6 address. Link-local IPv6 needs the computer's numeric interface index, e.g. fe80::1234%12." } }),
             &["ip"],
         ),
         tool(
