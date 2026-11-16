@@ -128,8 +128,8 @@ impl TypeObservation {
     fn new(args: &TypeArgs, before: Option<String>, value: Option<String>) -> Self {
         let changed = before.as_ref().zip(value.as_ref()).map(|(a, b)| a != b);
         let retry_hint = t(
-            "입력이 반영되었을 수 있습니다. 자동으로 재입력하지 말고 `iph read`나 스크린샷으로 확인하세요.",
-            "Input may have taken effect. Do not automatically retype; check with `iph read` or a screenshot.",
+            "입력이 반영되었을 수 있습니다. 자동으로 재입력하지 말고 `phone read`나 스크린샷으로 확인하세요.",
+            "Input may have taken effect. Do not automatically retype; check with `phone read` or a screenshot.",
         );
         let warning = if value.is_none() {
             Some(json!({
@@ -151,8 +151,8 @@ impl TypeObservation {
                 "code": "value_unchanged",
                 "message": "the field's value is unchanged; the paste may not have taken effect (identical replacement, masking or app behavior can also cause this)",
                 "hint": t(
-                    "자동으로 재입력하지 말고 `iph read`나 스크린샷으로 확인하세요. 붙여넣기가 막혔을 수도 있습니다: 설정 → 앱 → 해당 앱 → 다른 앱에서 붙여넣기 → 허용. 값이 같다는 사실만으로 권한 거부를 확정할 수는 없습니다.",
-                    "Do not automatically retype; check with `iph read` or a screenshot. Pasting may be blocked: Settings → Apps → this app → Paste from Other Apps → Allow. An unchanged value alone does not prove permission was denied.",
+                    "자동으로 재입력하지 말고 `phone read`나 스크린샷으로 확인하세요. 붙여넣기가 막혔을 수도 있습니다: 설정 → 앱 → 해당 앱 → 다른 앱에서 붙여넣기 → 허용. 값이 같다는 사실만으로 권한 거부를 확정할 수는 없습니다.",
+                    "Do not automatically retype; check with `phone read` or a screenshot. Pasting may be blocked: Settings → Apps → this app → Paste from Other Apps → Allow. An unchanged value alone does not prove permission was denied.",
                 ),
             }))
         } else if value.as_deref() == Some("") {
@@ -218,8 +218,8 @@ impl TypeObservation {
         };
         if let Some(mut fail) = fail {
             fail.hint = Some(t(
-                "입력은 이미 나갔습니다. 자동으로 재입력하거나 제출하지 말고 `iph read`나 스크린샷으로 먼저 확인하세요.",
-                "Input has already been sent. Do not automatically retype or submit; check with `iph read` or a screenshot first.",
+                "입력은 이미 나갔습니다. 자동으로 재입력하거나 제출하지 말고 `phone read`나 스크린샷으로 먼저 확인하세요.",
+                "Input has already been sent. Do not automatically retype or submit; check with `phone read` or a screenshot first.",
             ).into());
             fail.extra = out;
             Err(fail)
@@ -321,8 +321,8 @@ pub fn resolve_one<'a>(sel: &Selector, screen: &'a Screen) -> Res<&'a Element> {
             format!("no element matches {}", sel.describe()),
         )
         .hint(t(
-            "`iph read`로 현재 화면의 이름표를 확인하세요. 화면 밖에 있다면 `iph scroll down --until …`을 쓰세요.",
-            "Check the labels on screen with `iph read`. If it is off screen, use `iph scroll down --until …`.",
+            "`phone read`로 현재 화면의 이름표를 확인하세요. 화면 밖에 있다면 `phone scroll down --until …`을 쓰세요.",
+            "Check the labels on screen with `phone read`. If it is off screen, use `phone scroll down --until …`.",
         ))
         .with("selector", sel.describe())
         .with("screen_summary", screen.summary(12))),
@@ -351,8 +351,8 @@ fn tap_point(el: &Element, screen: &Screen) -> Res<(f64, f64)> {
     let visible = frame.intersection(&bounds).ok_or_else(|| {
         Fail::not_sent("off_screen", "the element is outside the screen")
             .hint(t(
-                "`iph scroll down --until …`으로 화면 안으로 가져오세요.",
-                "Bring it on screen with `iph scroll down --until …`.",
+                "`phone scroll down --until …`으로 화면 안으로 가져오세요.",
+                "Bring it on screen with `phone scroll down --until …`.",
             ))
             .with("element", brief(el))
     })?;
@@ -770,8 +770,8 @@ impl Session {
                 }
                 return Err(fail
                     .hint(t(
-                        "입력이 일부 나갔을 수 있습니다. 다시 보내지 말고 `iph read`로 화면을 확인하세요.",
-                        "Part of the input may have gone out. Do not resend; check the screen with `iph read`.",
+                        "입력이 일부 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
+                        "Part of the input may have gone out. Do not resend; check the screen with `phone read`.",
                     ))
                     .with("taps_sent", i));
             }
@@ -1083,8 +1083,8 @@ impl Session {
             1 => Ok(hits[0].bundle_identifier.clone()),
             0 => Err(Fail::not_sent("app_not_found", format!("no installed app is named \"{app}\""))
                 .hint(t(
-                    "`iph apps`로 이름과 bundle id를 확인하세요.",
-                    "See names and bundle ids with `iph apps`.",
+                    "`phone apps`로 이름과 bundle id를 확인하세요.",
+                    "See names and bundle ids with `phone apps`.",
                 ))),
             _ => Err(Fail::not_sent(
                 "ambiguous_app",
@@ -1117,8 +1117,8 @@ impl Session {
                     t("폰 잠금을 풀어 주세요.", "Unlock the phone.")
                 } else {
                     t(
-                        "bundle id가 맞는지 `iph apps`로 확인하세요.",
-                        "Check the bundle id with `iph apps`.",
+                        "bundle id가 맞는지 `phone apps`로 확인하세요.",
+                        "Check the bundle id with `phone apps`.",
                     )
                 }));
             }
@@ -1197,8 +1197,8 @@ impl Session {
                 "no text field has the keyboard right now",
             )
             .hint(t(
-                "먼저 입력할 칸을 `iph tap`으로 눌러 키보드를 띄우세요.",
-                "Tap the field first with `iph tap` so the keyboard comes up.",
+                "먼저 입력할 칸을 `phone tap`으로 눌러 키보드를 띄우세요.",
+                "Tap the field first with `phone tap` so the keyboard comes up.",
             ))
             .with("screen_summary", screen.summary(12)));
         };
@@ -1245,8 +1245,8 @@ impl Session {
             let restored = saved.restore(&adapter, port, &args.text).await;
             return Err(Fail::unknown("input_failed", format!("{e:#}"))
                 .hint(t(
-                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `iph read`로 화면을 확인하세요.",
-                    "The input may have gone out. Do not resend; check the screen with `iph read`.",
+                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
+                    "The input may have gone out. Do not resend; check the screen with `phone read`.",
                 ))
                 .with("clipboard_restored", restored));
         }
@@ -1331,14 +1331,14 @@ impl Session {
 
 const PASTEBOARD_SERVICE: &str = "com.apple.coredevice.pasteboardservice";
 
-/// Kinds of data the phone's clipboard service holds itself: what `iph type`
+/// Kinds of data the phone's clipboard service holds itself: what `phone type`
 /// puts there, and plain text or a picture. An item that carries any other kind
 /// (rich text, an app's own format) was copied in an app, and its bytes are
 /// only promised: the service asks that app for them when someone reads them.
 /// Read from here, that request never came back. Text copied in Notes stalled
 /// past 8 s for every kind on offer (rtf and plain text alike), and the
 /// service then answered nothing at all, writes included, for about a minute
-/// (2026-11-11: `iph type` right after ⌘C in Notes failed twice with "set
+/// (2026-11-11: `phone type` right after ⌘C in Notes failed twice with "set
 /// clipboard: no answer" and lost the clipboard the third time). Such content
 /// is not read.
 const SERVICE_KINDS: [&str; 6] = [
@@ -1370,7 +1370,7 @@ enum Peek {
     Unknown,
 }
 
-/// What the user had on the phone's clipboard before `iph type` borrowed it.
+/// What the user had on the phone's clipboard before `phone type` borrowed it.
 struct Clipboard {
     before: Peek,
 }
@@ -1464,7 +1464,7 @@ impl Clipboard {
     }
 
     /// True when what was on the clipboard could not be read and is lost
-    /// once `iph type` puts its text there.
+    /// once `phone type` puts its text there.
     fn unreadable(&self) -> bool {
         matches!(self.before, Peek::AppContent | Peek::Unknown)
     }
@@ -1716,7 +1716,7 @@ mod clipboard_tests {
     }
 
     #[test]
-    fn what_iph_puts_there_is_not() {
+    fn what_phone_puts_there_is_not() {
         // `set_text` writes these three kinds.
         assert!(!app_provided(&kinds(&["public.utf8-plain-text", "public.plain-text", "public.text"])));
         assert!(!app_provided(&kinds(&["public.png"])));

@@ -1,12 +1,12 @@
 name: Bug report / 버그 신고
-description: Report a reproducible problem with an iph diagnostic attachment.
+description: Report a reproducible problem with a phone-cli diagnostic attachment.
 body:
   - type: markdown
     attributes:
       value: |
-        Run `iph diagnose -- <failing iph command>` and attach the generated `.txt` file below.
-        For USB working but Wi-Fi failing, start with USB connected, run `iph diagnose --wifi -- read`, and unplug when prompted.
-        Commands after `--` run once. For example, `iph diagnose -- read --full`.
+        Run `phone diagnose -- <failing phone command>` and attach the generated `.txt` file below.
+        For USB working but Wi-Fi failing, start with USB connected, run `phone diagnose --wifi -- read`, and unplug when prompted.
+        Commands after `--` run once. For example, `phone diagnose -- read --full`.
   - type: textarea
     id: reproduce
     attributes:
@@ -25,6 +25,6 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostic attachment / 진단 파일
-      description: Drag the generated iph-diagnostics-*.txt file here. If collection failed, paste its terminal output instead. If the phone was not detected, also include its model and iOS version.
+      description: Drag the generated phone-diagnostics-*.txt file here. If collection failed, paste its terminal output instead. If the phone was not detected, also include its model and iOS version.
     validations:
       required: true

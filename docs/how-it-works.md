@@ -4,18 +4,18 @@
 
 ## 1. 터널과 상주 프로세스
 
-CLI와 MCP는 폰별 상주 프로세스(`iph daemon`)에 요청합니다. 상주 프로세스는 첫 요청 때 자동으로 시작하며, 터널·접근성 구독·입력 세션을 유지하고 요청을 차례대로 처리합니다. 통신에는 macOS의 유닉스 소켓, Windows의 named pipe를 씁니다.
+CLI와 MCP는 폰별 상주 프로세스(`phone daemon`)에 요청합니다. 상주 프로세스는 첫 요청 때 자동으로 시작하며, 터널·접근성 구독·입력 세션을 유지하고 요청을 차례대로 처리합니다. 통신에는 macOS의 유닉스 소켓, Windows의 named pipe를 씁니다.
 
 ```text
 USB: Apple usbmuxd 전송
-Wi-Fi: 발견·저장 주소 → 직접 TCP + iph heartbeat
+Wi-Fi: 발견·저장 주소 → 직접 TCP + phone-cli heartbeat
   → lockdown → CoreDeviceProxy → CDTunnel
   → 사용자 공간 TCP 스택 → RSD(서비스 목록)
 ```
 
-루트 권한이나 호스트의 터널 인터페이스 없이 연결하며, 서비스 포트는 RSD에서 이름으로 찾습니다. USB 전송과 페어링 기록은 Apple 서비스에서 얻습니다. Wi-Fi는 Apple 목록의 주소와 마지막으로 검증한 저장 주소 모두 같은 직접 TCP 경로를 사용합니다. IPv6 링크 로컬 주소의 인터페이스 범위도 보존합니다. 목록 조회가 실패해도 선택한 UDID의 저장 주소를 시도하며, TLS 페어링 세션의 UDID가 일치하고 heartbeat에 응답한 뒤 개발자 서비스를 엽니다. 연결 준비 실패는 다음 후보로 넘어갈 수 있지만 사용자 명령을 재실행하지 않습니다. USB가 기본 우선이고 `IPH_PREFER=wifi`이면 Wi-Fi 후보가 우선입니다.
+루트 권한이나 호스트의 터널 인터페이스 없이 연결하며, 서비스 포트는 RSD에서 이름으로 찾습니다. USB 전송과 페어링 기록은 Apple 서비스에서 얻습니다. Wi-Fi는 Apple 목록의 주소와 마지막으로 검증한 저장 주소 모두 같은 직접 TCP 경로를 사용합니다. IPv6 링크 로컬 주소의 인터페이스 범위도 보존합니다. 목록 조회가 실패해도 선택한 UDID의 저장 주소를 시도하며, TLS 페어링 세션의 UDID가 일치하고 heartbeat에 응답한 뒤 개발자 서비스를 엽니다. 연결 준비 실패는 다음 후보로 넘어갈 수 있지만 사용자 명령을 재실행하지 않습니다. USB가 기본 우선이고 `PHONE_PREFER=wifi`이면 Wi-Fi 후보가 우선입니다.
 
-`[daemon] idle_exit_secs`의 기본값은 1800초입니다. macOS의 상태 파일은 `~/Library/Application Support/iph/`, Windows는 `%LOCALAPPDATA%\iph\`에 저장합니다.
+`[daemon] idle_exit_secs`의 기본값은 1800초입니다. macOS의 상태 파일은 `~/Library/Application Support/phone/`, Windows는 `%LOCALAPPDATA%\phone\`에 저장합니다.
 
 구현: [daemon.rs](../src/daemon.rs), [conn.rs](../src/device/conn.rs), [config.rs](../src/config.rs).
 
@@ -47,7 +47,7 @@ Wi-Fi: 발견·저장 주소 → 직접 TCP + iph heartbeat
 | 53 | 값 |
 | 77 | `UIAccessibilityTraits` 비트 |
 
-`enabled`, `selected`, `focused`는 각각 비활성·선택·편집 특성에서 계산합니다. 알 수 없는 속성은 `iph read --raw`에서 확인할 수 있습니다. 계산기 표시 창처럼 값이 식별자에 들어가는 요소도 있습니다.
+`enabled`, `selected`, `focused`는 각각 비활성·선택·편집 특성에서 계산합니다. 알 수 없는 속성은 `phone read --raw`에서 확인할 수 있습니다. 계산기 표시 창처럼 값이 식별자에 들어가는 요소도 있습니다.
 
 기본 출력에서는 화면과 겹치지 않는 요소를 뺍니다(`--all`로 포함). 앱이 화면 밖 행을 트리에 넣지 않는 경우에는 `scroll --until`로 찾아야 합니다. 아카이브 해석에는 객체 확장 횟수 상한을 두고, 파싱은 비동기 실행 스레드 밖에서 수행합니다.
 
@@ -106,13 +106,13 @@ Wi-Fi heartbeat의 종료·SleepyTime·응답 시간 초과를 관측하면 캐�
 
 마지막 화면이 홈 화면·제어 센터 같은 시스템 화면이면 서비스를 종료하지 않습니다. 재시작이 실패했거나 도움이 되지 않았을 때도 다음 읽기가 성공할 때까지 재시작을 반복하지 않습니다.
 
-화면 녹화 중에는 제어 센터 읽기가 응답하지 않을 수 있습니다. 이때는 `iph button home`으로 닫거나 `iph launch`로 앱을 앞으로 가져온 뒤 다시 읽습니다. 폰이 잠겼다고 확인된 경우를 제외하면, 화면 읽기가 `ax_timeout`으로 실패해도 좌표 탭·좌표 밀기·버튼을 마지막 화면 크기로 보낼 수 있습니다. 결과에는 `verified: false`와 `note`가 붙습니다. 이름표 탭은 화면 읽기가 필요합니다.
+화면 녹화 중에는 제어 센터 읽기가 응답하지 않을 수 있습니다. 이때는 `phone button home`으로 닫거나 `phone launch`로 앱을 앞으로 가져온 뒤 다시 읽습니다. 폰이 잠겼다고 확인된 경우를 제외하면, 화면 읽기가 `ax_timeout`으로 실패해도 좌표 탭·좌표 밀기·버튼을 마지막 화면 크기로 보낼 수 있습니다. 결과에는 `verified: false`와 `note`가 붙습니다. 이름표 탭은 화면 읽기가 필요합니다.
 
 구현: [session.rs](../src/device/session.rs), [actions.rs](../src/actions.rs).
 
 ## 7. 방해금지 모드
 
-`iph dnd on|off|status`는 제어 센터의 집중 모드 항목을 조작합니다. 일반 명령과 스크립트는 방해금지 모드를 자동으로 바꾸지 않습니다.
+`phone dnd on|off|status`는 제어 센터의 집중 모드 항목을 조작합니다. 일반 명령과 스크립트는 방해금지 모드를 자동으로 바꾸지 않습니다.
 
 - 화면 오른쪽 위에서 감속 끌기로 제어 센터를 열고, 집중 모드 항목을 길게 눌러 모드 목록을 엽니다.
 - `on`은 방해금지 모드를 선택합니다. 바꾸기 전에 이전 집중 모드를 파일에 저장합니다.

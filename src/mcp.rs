@@ -1,4 +1,4 @@
-//! `iph mcp`: the commands as MCP tools over stdio (JSON-RPC 2.0, one message
+//! `phone mcp`: the commands as MCP tools over stdio (JSON-RPC 2.0, one message
 //! per line). Each tool forwards to the same daemon the CLI uses, so results
 //! have the same shape.
 
@@ -46,13 +46,13 @@ fn tools() -> Vec<Value> {
     let selector = json!({ "description": SELECTOR_DOC, "type": ["string", "object"] });
     vec![
         tool(
-            "iph_connect",
+            "phone_connect",
             "Verify and save the selected paired iPhone's IP address when automatic discovery fails. Requires prior USB trust on this computer. Checks a paired session and reported UDID before saving. Subsequent tools and scripts use the address; this does not establish developer-service readiness or repair Apple's discovery list.",
             json!({ "ip": { "type": "string", "description": "The iPhone's IPv4 or IPv6 address. Link-local IPv6 needs the computer's numeric interface index, e.g. fe80::1234%12." } }),
             &["ip"],
         ),
         tool(
-            "iph_read",
+            "phone_read",
             "Read the iPhone's current screen as a list of elements (id, role, label, value, frame in points, traits, enabled). \
              Read before acting; coordinates and labels come from here. Only on-screen elements unless all=true.",
             json!({
@@ -64,15 +64,15 @@ fn tools() -> Vec<Value> {
             &[],
         ),
         tool(
-            "iph_find",
+            "phone_find",
             "Find elements on screen that match a selector.",
             json!({ "selector": selector, "all": { "type": "boolean" } }),
             &["selector"],
         ),
         tool(
-            "iph_tap",
+            "phone_tap",
             "Tap an element (selector) or a point (\"x,y\" in points). Waits for the screen to change and hold still, \
-             then returns it (`elements`, as iph_read does) and whether it changed. \
+             then returns it (`elements`, as phone_read does) and whether it changed. \
              Never retry a tap whose outcome is \"unknown\".",
             json!({
                 "target": { "description": format!("A selector, or \"x,y\". {SELECTOR_DOC}"), "type": ["string", "object"] },
@@ -83,7 +83,7 @@ fn tools() -> Vec<Value> {
             &["target"],
         ),
         tool(
-            "iph_swipe",
+            "phone_swipe",
             "Swipe the finger up, down, left or right across the middle of the screen, or between two points.",
             json!({
                 "direction": { "type": "string", "enum": ["up", "down", "left", "right"] },
@@ -95,7 +95,7 @@ fn tools() -> Vec<Value> {
             &[],
         ),
         tool(
-            "iph_scroll",
+            "phone_scroll",
             "Scroll the content. \"down\" shows what is further down. With `until`, keeps scrolling until that element is on screen.",
             json!({
                 "direction": { "type": "string", "enum": ["up", "down"] },
@@ -105,7 +105,7 @@ fn tools() -> Vec<Value> {
             &["direction"],
         ),
         tool(
-            "iph_type",
+            "phone_type",
             "Type text into the field that has the keyboard (tap the field first). Pasted through the clipboard, so Korean and emoji work; \
              the user's clipboard is put back (not content copied in an app: see clipboard_note). verified means the value was read, not that it matches the intended text. \
              Inspect value_before, value, value_changed (true/false/null) and warning. An unchanged value can mean blocked paste, masking or identical replacement; never automatically retype. \
@@ -118,19 +118,19 @@ fn tools() -> Vec<Value> {
             &["text"],
         ),
         tool(
-            "iph_key",
+            "phone_key",
             "Press a key: return, esc, tab, space, backspace, delete, arrows, or a combination like cmd+a.",
             json!({ "key": { "type": "string" } }),
             &["key"],
         ),
         tool(
-            "iph_button",
+            "phone_button",
             "Press a hardware button.",
             json!({ "button": { "type": "string", "enum": ["home", "lock", "volume_up", "volume_down"] } }),
             &["button"],
         ),
         tool(
-            "iph_launch",
+            "phone_launch",
             "Bring an app to the front by bundle id (com.apple.Preferences) or by its name.",
             json!({
                 "app": { "type": "string" },
@@ -138,22 +138,22 @@ fn tools() -> Vec<Value> {
             }),
             &["app"],
         ),
-        tool("iph_apps", "List installed apps with their bundle ids.", json!({}), &[]),
+        tool("phone_apps", "List installed apps with their bundle ids.", json!({}), &[]),
         tool(
-            "iph_dnd",
+            "phone_dnd",
             "Do Not Disturb on the phone, so a notification banner cannot take a tap. \"on\" before the work, \"off\" when it is done \
              (puts back the Focus that was on).",
             json!({ "action": { "type": "string", "enum": ["on", "off", "status"] } }),
             &["action"],
         ),
         tool(
-            "iph_screenshot",
-            "Save a PNG screenshot to a file on this computer. Use iph_read for content; this is for looks.",
+            "phone_screenshot",
+            "Save a PNG screenshot to a file on this computer. Use phone_read for content; this is for looks.",
             json!({ "path": { "type": "string", "description": "Absolute path of the PNG to write." } }),
             &["path"],
         ),
         tool(
-            "iph_batch",
+            "phone_batch",
             "Run several steps in one call, stopping at the first failure. Each step is a one-key object: \
              {\"launch\": \"…\"}, {\"wait_for\": selector}, {\"tap\": selector}, {\"type\": {\"text\": \"…\"}}, {\"swipe\": \"up\"}, \
              {\"scroll_until\": selector}, {\"read_field\": {\"name\", \"selector\", \"take\"}}, {\"read_list\": {\"name\", \"row\", \"columns\"}}, \
@@ -162,7 +162,7 @@ fn tools() -> Vec<Value> {
             &["steps"],
         ),
         tool(
-            "iph_script",
+            "phone_script",
             SCRIPT_DOC,
             json!({
                 "code": { "type": "string", "description": "JavaScript. The body of a function: `return` ends it and its value becomes `outputs`." },
@@ -171,17 +171,17 @@ fn tools() -> Vec<Value> {
             &["code"],
         ),
         tool(
-            "iph_run",
-            "Run a saved script by name (see iph_scripts) in one call and get its outputs. Same result as iph_script.",
+            "phone_run",
+            "Run a saved script by name (see phone_scripts) in one call and get its outputs. Same result as phone_script.",
             json!({
                 "name": { "type": "string" },
                 "args": { "type": "object", "description": "What the script reads as `args`." },
             }),
             &["name"],
         ),
-        tool("iph_scripts", "List saved scripts: name, what each does, and where it lives.", json!({}), &[]),
+        tool("phone_scripts", "List saved scripts: name, what each does, and where it lives.", json!({}), &[]),
         tool(
-            "iph_doctor",
+            "phone_doctor",
             "Check that the phone is ready. Each check says what the user must do when it fails.",
             json!({
                 "no_touch_test": { "type": "boolean", "description": "Skip the check that scrolls Settings down and back." },
@@ -196,19 +196,19 @@ async fn call(udid: &str, name: &str, args: Value) -> Value {
     let started = std::time::Instant::now();
     let args = if args.is_null() { json!({}) } else { args };
     match name {
-        "iph_connect" => match serde_json::from_value::<connect::Args>(args) {
+        "phone_connect" => match serde_json::from_value::<connect::Args>(args) {
             Ok(args) => envelope(connect::run(udid, args).await, started),
             Err(e) => envelope(Err(Fail::invalid(e.to_string())), started),
         },
-        "iph_scripts" => envelope(script::cmd_scripts(), started),
-        "iph_script" | "iph_run" => match script_request(name, &args) {
+        "phone_scripts" => envelope(script::cmd_scripts(), started),
+        "phone_script" | "phone_run" => match script_request(name, &args) {
             Ok(request) => client::request(udid, "script", request).await,
             Err(f) => envelope(Err(f), started),
         },
-        "iph_read" | "iph_find" | "iph_tap" | "iph_swipe" | "iph_scroll" | "iph_type" | "iph_key"
-        | "iph_button" | "iph_launch" | "iph_apps" | "iph_screenshot" | "iph_batch" | "iph_doctor"
-        | "iph_dnd" => {
-            let cmd = name.trim_start_matches("iph_");
+        "phone_read" | "phone_find" | "phone_tap" | "phone_swipe" | "phone_scroll" | "phone_type" | "phone_key"
+        | "phone_button" | "phone_launch" | "phone_apps" | "phone_screenshot" | "phone_batch" | "phone_doctor"
+        | "phone_dnd" => {
+            let cmd = name.trim_start_matches("phone_");
             let args = if cmd == "apps" { Value::Null } else { args };
             client::request(udid, cmd, args).await
         }
@@ -216,7 +216,7 @@ async fn call(udid: &str, name: &str, args: Value) -> Value {
     }
 }
 
-/// What `iph_script` and `iph_run` send on: the code itself, or the saved
+/// What `phone_script` and `phone_run` send on: the code itself, or the saved
 /// script the name stands for.
 fn script_request(tool: &str, args: &Value) -> Result<Value, Fail> {
     let empty = Map::new();
@@ -230,7 +230,7 @@ fn script_request(tool: &str, args: &Value) -> Result<Value, Fail> {
             .and_then(|v| v.as_str())
             .ok_or_else(|| Fail::invalid(format!("{tool} needs `{key}`")))
     };
-    if tool == "iph_script" {
+    if tool == "phone_script" {
         // `script` is accepted for `code`: a model that goes by the tool's
         // name rather than its schema sends that (Codex did, 2026-11-11).
         let code = match args.get("script").and_then(|v| v.as_str()) {
@@ -258,7 +258,7 @@ fn offered(only: &[String]) -> Vec<Value> {
         .into_iter()
         .filter(|t| {
             let name = t["name"].as_str().unwrap_or("");
-            only.is_empty() || only.iter().any(|o| o == name || format!("iph_{o}") == name)
+            only.is_empty() || only.iter().any(|o| o == name || format!("phone_{o}") == name)
         })
         .collect()
 }
@@ -280,9 +280,9 @@ async fn handle(udid: &str, only: &[String], msg: &Value) -> Option<Value> {
                 json!({
                     "protocolVersion": version,
                     "capabilities": { "tools": {} },
-                    "serverInfo": { "name": "iph", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": "Operate a real iPhone through its accessibility tree. Read the screen with iph_read, act with iph_tap / iph_type / iph_scroll, \
-                                     and check `screen_changed` in each result. For typing also check value_changed and warning: verified only means read back. Never automatically retype on a warning. For a known sequence prefer one iph_script (or a saved one with iph_run): one call instead of one per step. \
+                    "serverInfo": { "name": "phone", "version": env!("CARGO_PKG_VERSION") },
+                    "instructions": "Operate a real iPhone through its accessibility tree. Read the screen with phone_read, act with phone_tap / phone_type / phone_scroll, \
+                                     and check `screen_changed` in each result. For typing also check value_changed and warning: verified only means read back. Never automatically retype on a warning. For a known sequence prefer one phone_script (or a saved one with phone_run): one call instead of one per step. \
                                      Outcome \"unknown\" means input may have gone out: read the screen, never resend.",
                 }),
             )
@@ -345,8 +345,8 @@ mod tests {
             .map(|t| t["name"].as_str().unwrap().to_string())
             .collect();
         for expected in [
-            "iph_read", "iph_find", "iph_tap", "iph_swipe", "iph_scroll", "iph_type", "iph_button",
-            "iph_launch", "iph_batch", "iph_script", "iph_run", "iph_scripts", "iph_doctor", "iph_connect",
+            "phone_read", "phone_find", "phone_tap", "phone_swipe", "phone_scroll", "phone_type", "phone_button",
+            "phone_launch", "phone_batch", "phone_script", "phone_run", "phone_scripts", "phone_doctor", "phone_connect",
         ] {
             assert!(names.contains(&expected.to_string()), "missing {expected}");
         }
@@ -358,26 +358,26 @@ mod tests {
 
     #[test]
     fn a_script_request_takes_code_or_a_saved_name() {
-        let req = script_request("iph_script", &json!({"code": "return 1", "args": {"n": 2}})).unwrap();
+        let req = script_request("phone_script", &json!({"code": "return 1", "args": {"n": 2}})).unwrap();
         assert_eq!(req, json!({"code": "return 1", "args": {"n": 2}}));
         // The name a model guesses from the tool's name works too.
-        let req = script_request("iph_script", &json!({"script": "return 2"})).unwrap();
+        let req = script_request("phone_script", &json!({"script": "return 2"})).unwrap();
         assert_eq!(req["code"], "return 2");
-        let req = script_request("iph_run", &json!({"name": "settings-version"})).unwrap();
+        let req = script_request("phone_run", &json!({"name": "settings-version"})).unwrap();
         assert_eq!(req["script"], "settings-version");
         assert_eq!(req["source"], "builtin:settings-version");
         assert!(req["code"].as_str().unwrap().contains("launch("));
         for bad in [json!({}), json!({"code": 1}), json!({"code": "x", "args": [1]})] {
-            assert_eq!(script_request("iph_script", &bad).unwrap_err().code, "invalid_argument", "{bad}");
+            assert_eq!(script_request("phone_script", &bad).unwrap_err().code, "invalid_argument", "{bad}");
         }
-        assert_eq!(script_request("iph_run", &json!({"name": "nope"})).unwrap_err().code, "script_not_found");
+        assert_eq!(script_request("phone_run", &json!({"name": "nope"})).unwrap_err().code, "script_not_found");
     }
 
     #[tokio::test]
     async fn connect_rejects_missing_invalid_and_extra_arguments_before_contacting_a_phone() {
         for args in [json!({}), json!({"ip": "not-an-ip"}),
                      json!({"ip": "192.0.2.1", "submit": true})] {
-            let result = call("NO-PHONE", "iph_connect", args).await;
+            let result = call("NO-PHONE", "phone_connect", args).await;
             assert_eq!(result["ok"], false);
             assert_eq!(result["outcome"], "not_sent");
             assert_eq!(result["error"]["code"], "invalid_argument");
@@ -389,7 +389,7 @@ mod tests {
         let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}});
         let r = handle("X", &[], &init).await.unwrap();
         assert_eq!(r["result"]["protocolVersion"], "2024-11-05");
-        assert_eq!(r["result"]["serverInfo"]["name"], "iph");
+        assert_eq!(r["result"]["serverInfo"]["name"], "phone");
         let note = json!({"jsonrpc":"2.0","method":"notifications/initialized"});
         assert!(handle("X", &[], &note).await.is_none());
         let unknown = json!({"jsonrpc":"2.0","id":2,"method":"nope"});
@@ -398,7 +398,7 @@ mod tests {
 
     #[tokio::test]
     async fn tools_can_be_limited() {
-        let only = vec!["read".to_string(), "iph_find".to_string()];
+        let only = vec!["read".to_string(), "phone_find".to_string()];
         let list = json!({"jsonrpc":"2.0","id":1,"method":"tools/list"});
         let r = handle("X", &only, &list).await.unwrap();
         let names: Vec<&str> = r["result"]["tools"]
@@ -407,9 +407,9 @@ mod tests {
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names, ["iph_read", "iph_find"]);
+        assert_eq!(names, ["phone_read", "phone_find"]);
         // A tool that is not on offer cannot be called either.
-        let call = json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"iph_tap","arguments":{"target":"x"}}});
+        let call = json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"phone_tap","arguments":{"target":"x"}}});
         assert_eq!(handle("X", &only, &call).await.unwrap()["error"]["code"], -32602);
     }
 }

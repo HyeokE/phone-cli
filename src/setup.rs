@@ -1,4 +1,4 @@
-//! `iph setup`: run the doctor, explain what is missing, wait for the user to
+//! `phone setup`: run the doctor, explain what is missing, wait for the user to
 //! fix it on the phone, and check again.
 
 use std::io::{BufRead, IsTerminal, Write};
@@ -12,8 +12,8 @@ pub async fn run(udid: &str, fix_wifi: bool) -> i32 {
     println!(
         "{}",
         t(
-            "iph 준비 상태를 확인합니다. 터치 확인을 위해 폰에서 설정 앱이 열리고 목록이 한 번 내려갔다 올라옵니다.",
-            "Checking that the phone is ready for iph. To test touch, Settings opens on the phone and its list scrolls down and back once.",
+            "phone 준비 상태를 확인합니다. 터치 확인을 위해 폰에서 설정 앱이 열리고 목록이 한 번 내려갔다 올라옵니다.",
+            "Checking that the phone is ready for phone-cli. To test touch, Settings opens on the phone and its list scrolls down and back once.",
         )
     );
     if fix_wifi {
@@ -29,8 +29,8 @@ pub async fn run(udid: &str, fix_wifi: bool) -> i32 {
             println!(
                 "{}",
                 t(
-                    "준비됐습니다. `iph read`로 화면을 읽어 보세요.",
-                    "Ready. Try `iph read`."
+                    "준비됐습니다. `phone read`로 화면을 읽어 보세요.",
+                    "Ready. Try `phone read`."
                 )
             );
             return 0;

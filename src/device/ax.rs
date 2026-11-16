@@ -73,13 +73,13 @@ enum Cmd {
     Ask(Vec<u8>),
 }
 
-/// `IPH_TRACE=1` logs every request and dump with a millisecond clock, to the
+/// `PHONE_TRACE=1` logs every request and dump with a millisecond clock, to the
 /// daemon's log.
 pub fn trace(msg: impl FnOnce() -> String) {
     use std::sync::OnceLock;
     static ON: OnceLock<bool> = OnceLock::new();
     static START: OnceLock<Instant> = OnceLock::new();
-    if *ON.get_or_init(|| std::env::var("IPH_TRACE").is_ok_and(|v| v == "1")) {
+    if *ON.get_or_init(|| crate::paths::env_var("PHONE_TRACE").is_ok_and(|v| v == "1")) {
         let t = START.get_or_init(Instant::now).elapsed().as_millis();
         eprintln!("[trace {t:>8}] {}", msg());
     }
@@ -347,14 +347,14 @@ impl AxSub {
     }
 }
 
-/// `IPH_DUMP_DIR=<dir>` keeps the last few raw payloads on disk before they
+/// `PHONE_DUMP_DIR=<dir>` keeps the last few raw payloads on disk before they
 /// are parsed, to study a payload that the parser chokes on. The payloads
 /// hold whatever is on the phone's screen: use it on test screens only and
 /// delete the files afterwards.
 fn debug_keep(bytes: &[u8], failed: bool) {
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);
-    let Ok(dir) = std::env::var("IPH_DUMP_DIR") else {
+    let Ok(dir) = crate::paths::env_var("PHONE_DUMP_DIR") else {
         return;
     };
     if failed {

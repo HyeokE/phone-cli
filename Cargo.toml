@@ -1,18 +1,18 @@
 [package]
-name = "iphone-cli"
+name = "phone-cli"
 version = "0.1.4"
 edition = "2024"
 license = "MIT"
-description = "Let AI agents read and operate any app on a real iPhone through the accessibility tree. No XCUITest, WebDriverAgent or Xcode signing."
-repository = "https://github.com/HyunSeob/iphone-cli"
+description = "Let AI agents read and operate any app on a real phone through the accessibility tree. iPhone today (no XCUITest, WebDriverAgent or Xcode signing), Android-ready naming."
+repository = "https://github.com/HyeokE/phone-cli"
 readme = "README.md"
 
 [lib]
-name = "iphone_cli"
+name = "phone_cli"
 path = "src/lib.rs"
 
 [[bin]]
-name = "iph"
+name = "phone"
 path = "src/main.rs"
 
 [dependencies]

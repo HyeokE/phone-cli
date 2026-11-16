@@ -216,7 +216,7 @@ pub fn render(cmd: &str, v: &Value) -> String {
         }
         _ => {
             let mut parts = vec!["✓".to_string()];
-            for key in ["screen_changed", "foreground", "found", "scrolls", "value", "clipboard_restored", "path", "state", "stopped", "on", "focus", "set_by_iph"] {
+            for key in ["screen_changed", "foreground", "found", "scrolls", "value", "clipboard_restored", "path", "state", "stopped", "on", "focus", "set_by_phone"] {
                 if v.get("value_changed").is_some() && matches!(key, "value" | "screen_changed") {
                     continue;
                 }

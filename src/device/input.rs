@@ -62,9 +62,9 @@ const FIRST_PACKET: Duration = Duration::from_secs(3);
 /// Time between registering the temporary keyboard and its first key.
 const KEYBOARD_ATTACH: Duration = Duration::from_millis(700);
 
-/// `WARMUP`, or `IPH_INPUT_WARMUP_MS` when set (for tuning).
+/// `WARMUP`, or `PHONE_INPUT_WARMUP_MS` when set (for tuning).
 fn warmup() -> Duration {
-    std::env::var("IPH_INPUT_WARMUP_MS")
+    crate::paths::env_var("PHONE_INPUT_WARMUP_MS")
         .ok()
         .and_then(|v| v.parse().ok())
         .map(Duration::from_millis)
@@ -124,7 +124,7 @@ impl Drain {
                 })
             })
             .collect();
-        if std::env::var("IPH_TRACE").is_ok_and(|v| v == "1") {
+        if crate::paths::env_var("PHONE_TRACE").is_ok_and(|v| v == "1") {
             tasks.push(tokio::spawn(async move {
                 let mut before: Vec<(u64, u64)> = counts.iter().map(|_| (0, 0)).collect();
                 loop {
@@ -287,8 +287,8 @@ impl InputSession {
         // is a first report, and the first report on a new connection is
         // sometimes lost, taking a whole gesture with it. Measured with a new
         // session for every scroll: 7 of 40 first drags lost without this,
-        // 0 of 60 with it (iOS 27.0.1). `IPH_INPUT_PRIME=0` turns it off.
-        let prime = std::env::var("IPH_INPUT_PRIME").map(|v| v != "0").unwrap_or(true);
+        // 0 of 60 with it (iOS 27.0.1). `PHONE_INPUT_PRIME=0` turns it off.
+        let prime = crate::paths::env_var("PHONE_INPUT_PRIME").map(|v| v != "0").unwrap_or(true);
         if prime {
             let _ = hid.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, 65535, 65535, None).await;
         }

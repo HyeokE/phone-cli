@@ -102,7 +102,7 @@ mod tests {
 
     #[tokio::test]
     async fn only_a_matching_paired_probe_replaces_the_saved_address() {
-        let dir = std::env::temp_dir().join(format!("iph-direct-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("phone-direct-{}", uuid::Uuid::new_v4()));
         let udid = "TEST-PHONE";
         let old: WifiAddress = "192.0.2.1".parse().unwrap();
         let new: WifiAddress = "192.0.2.2".parse().unwrap();
@@ -135,7 +135,7 @@ mod tests {
 
     #[tokio::test]
     async fn invalid_target_is_rejected_before_probing_or_creating_files() {
-        let dir = std::env::temp_dir().join(format!("iph-direct-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("phone-direct-{}", uuid::Uuid::new_v4()));
         let result = register_at(&dir, "../escape", "192.0.2.1".parse().unwrap(), async {
             panic!("must not probe")
         })
@@ -146,7 +146,7 @@ mod tests {
 
     #[tokio::test]
     async fn failed_cache_commit_preserves_existing_data_and_removes_the_temporary_file() {
-        let dir = std::env::temp_dir().join(format!("iph-direct-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("phone-direct-{}", uuid::Uuid::new_v4()));
         let destination = dir.join("TEST-PHONE.addr");
         std::fs::create_dir_all(&destination).unwrap();
         std::fs::write(destination.join("keep"), "previous data").unwrap();

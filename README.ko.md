@@ -1,22 +1,24 @@
-# iphone-cli (`iph`)
+# phone-cli (`phone`)
+
+> [HyunSeob/iphone-cli](https://github.com/HyunSeob/iphone-cli)의 포크입니다. 안드로이드 지원을 앞두고 phone-cli(`phone`)로 이름을 바꿨습니다.
 
 **AI 에이전트가 실제 아이폰의 아무 앱이나 터미널에서 읽고 조작할 수 있는 CLI & MCP 서버.**
 
 **No Xcode. No WebDriverAgent. No app installed on the phone. 100% Rust.**
 
 - **Xcode · 서명 · 폰 앱 설치 없음** — USB 또는 Wi-Fi로 애플 개발자 서비스(접근성 · HID)에 직접 붙습니다
-- **스크린샷 추론 대신 접근성 트리** — 화면 구조를 바로 읽고, 자주 쓰는 흐름은 내장 QuickJS 엔진(`iph script`)으로 AI 왕복 없이 한 번에 실행합니다
-- **에이전트 친화 설계** — CLI + MCP 서버(`iph mcp`)와 재시도 판단이 가능한 결과 상태(`done` / `not_sent` / `unknown`)를 제공합니다
+- **스크린샷 추론 대신 접근성 트리** — 화면 구조를 바로 읽고, 자주 쓰는 흐름은 내장 QuickJS 엔진(`phone script`)으로 AI 왕복 없이 한 번에 실행합니다
+- **에이전트 친화 설계** — CLI + MCP 서버(`phone mcp`)와 재시도 판단이 가능한 결과 상태(`done` / `not_sent` / `unknown`)를 제공합니다
 - **단일 네이티브 바이너리 (macOS · Windows)** — Python · Node.js · Appium 런타임 없이 바로 설치하고, **실제 아이폰(iOS 27 이상)** 에서 동작합니다
 
 English: [README.md](README.md)
 
-![iphone-cli 데모](docs/demo.gif)
+![phone-cli 데모](docs/demo.gif)
 
 [Poki](https://github.com/JosssphZhou/poki)의 원리를 따라 만들었습니다(코드는 가져오지 않고 문서와 기기 실험을 바탕으로 새로 구현). 기기 통신은 [idevice](https://github.com/jkcoxson/idevice)(MIT)를 사용합니다.
 
 ```console
-$ iph read --human
+$ phone read --human
 설정  430x932  15 elements
 application   "설정"  @0,0 430x932
   header        "설정"  @20,119.3 53.7x37
@@ -25,10 +27,10 @@ application   "설정"  @0,0 430x932
   button        "일반"  @20,700 390x49.3
   …
 
-$ iph tap "일반"
+$ phone tap "일반"
 {"ok":true,"outcome":"done","elapsed_ms":1752,"sent":true,"verified":true,"screen_changed":true,…}
 
-$ iph run settings-version
+$ phone run settings-version
 {"ok":true,"outcome":"done","elapsed_ms":10788,"steps":[…],"outputs":{"ios_version":"27.0.1"},…}
 ```
 
@@ -48,47 +50,47 @@ $ iph run settings-version
 Rust도 Xcode도 필요 없습니다. 맥에서는 터미널에 한 줄이면 됩니다 (`curl` · `tar` · `shasum` 같은 맥 기본 도구만 씁니다).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/HyunSeob/iphone-cli/main/install.sh | sh
-iph setup                     # 폰 준비 상태를 차례로 확인하고, 할 일을 알려 줍니다
+curl -fsSL https://raw.githubusercontent.com/HyeokE/phone-cli/main/install.sh | sh
+phone setup                     # 폰 준비 상태를 차례로 확인하고, 할 일을 알려 줍니다
 ```
 
-최신 [릴리스](https://github.com/HyunSeob/iphone-cli/releases)의 유니버설 바이너리(애플 실리콘 · 인텔)를 받아 체크섬을 확인하고 `~/.local/bin/iph`에 넣습니다. 다른 폴더는 `IPH_INSTALL_DIR`, 특정 버전은 `IPH_VERSION=v0.1.0`으로 고릅니다. 윈도는 릴리스에서 `iph-windows-x86_64.zip`을 받아 `iph.exe`를 PATH에 있는 폴더에 두면 됩니다.
+최신 [릴리스](https://github.com/HyeokE/phone-cli/releases)의 유니버설 바이너리(애플 실리콘 · 인텔)를 받아 체크섬을 확인하고 `~/.local/bin/phone`에 넣습니다. 다른 폴더는 `PHONE_INSTALL_DIR`, 특정 버전은 `PHONE_VERSION=v0.1.0`으로 고릅니다. 윈도는 릴리스에서 `phone-windows-x86_64.zip`을 받아 `phone.exe`를 PATH에 있는 폴더에 두면 됩니다.
 
 - **맥:** 폰을 USB로 꽂고 폰에서 '신뢰'를 누르면 짝짓기가 됩니다.
 - **윈도:** 애플의 기기 연결 서비스가 있어야 합니다. Microsoft Store의 **Apple 기기**(Apple Devices) 앱을 깔거나, `winget install Apple.AppleMobileDeviceSupport`로 서비스만 깔면 됩니다. 그 뒤 폰을 USB로 꽂고 '신뢰'를 누르세요.
-- **개발자 디스크 이미지:** 폰에 없으면 `iph doctor`가 연결합니다. 맥에 Xcode가 있으면 Xcode의 이미지를 쓰고, 없으면 공개 저장소 [doronz88/DeveloperDiskImage](https://github.com/doronz88/DeveloperDiskImage)에서 처음 한 번 받아 옵니다 (약 18 MB, 커밋과 SHA-256 고정). iph 저장소에는 애플 파일이 들어 있지 않습니다.
+- **개발자 디스크 이미지:** 폰에 없으면 `phone doctor`가 연결합니다. 맥에 Xcode가 있으면 Xcode의 이미지를 쓰고, 없으면 공개 저장소 [doronz88/DeveloperDiskImage](https://github.com/doronz88/DeveloperDiskImage)에서 처음 한 번 받아 옵니다 (약 18 MB, 커밋과 SHA-256 고정). phone 저장소에는 애플 파일이 들어 있지 않습니다.
 
-Rust 1.88 이상이 있으면 [crates.io](https://crates.io/crates/iphone-cli)의 크레이트로도 같은 `iph`를 깔 수 있습니다 (빌드에 몇 분 걸리고, 윈도는 Visual Studio Build Tools(C++)가 필요합니다).
+Rust 1.88 이상이 있으면 [crates.io](https://crates.io/crates/phone-cli)의 크레이트로도 같은 `phone`을 깔 수 있습니다 (빌드에 몇 분 걸리고, 윈도는 Visual Studio Build Tools(C++)가 필요합니다).
 
 ```sh
-cargo install iphone-cli      # ~/.cargo/bin/iph
+cargo install phone-cli      # ~/.cargo/bin/phone
 ```
 
 소스에서 빌드하려면:
 
 ```sh
-git clone https://github.com/HyunSeob/iphone-cli
-cd iphone-cli
-cargo install --path .        # ~/.cargo/bin/iph
+git clone https://github.com/HyeokE/phone-cli
+cd phone-cli
+cargo install --path .        # ~/.cargo/bin/phone
 ```
 
 ## 처음 준비
 
-`iph setup`은 `iph doctor`를 돌리고, 안 된 항목마다 폰에서 할 일을 한 줄로 알려 준 뒤 다시 확인합니다. 에이전트는 `iph doctor`(JSON)의 `checks[].user_action`을 읽어 사용자를 안내하면 됩니다.
+`phone setup`은 `phone doctor`를 돌리고, 안 된 항목마다 폰에서 할 일을 한 줄로 알려 준 뒤 다시 확인합니다. 에이전트는 `phone doctor`(JSON)의 `checks[].user_action`을 읽어 사용자를 안내하면 됩니다.
 
 | 항목 | 필수 | 내용 |
 |---|---|---|
 | `pairing` | 필수 | 맥이 이 폰의 짝짓기 기록을 갖고 있어야 합니다. 없으면 USB로 연결하고 폰에서 '신뢰' |
 | `connection` | 필수 | USB 또는 같은 Wi-Fi에서 폰이 보여야 합니다 |
-| `developer_mode` | 필수 | 설정 → 개인정보 보호 및 보안 → 개발자 모드. 꺼져 있으면 `iph doctor`가 그 메뉴를 꺼내 줍니다 |
-| `developer_disk_image` | 필수 | 접근성 · 화면 · 입력 서비스가 여기서 나옵니다. 없으면 `iph doctor`가 받아서 연결합니다 (위 '설치') |
+| `developer_mode` | 필수 | 설정 → 개인정보 보호 및 보안 → 개발자 모드. 꺼져 있으면 `phone doctor`가 그 메뉴를 꺼내 줍니다 |
+| `developer_disk_image` | 필수 | 접근성 · 화면 · 입력 서비스가 여기서 나옵니다. 없으면 `phone doctor`가 받아서 연결합니다 (위 '설치') |
 | `screen_unlocked` | 필수 | 폰 잠금이 풀려 있어야 합니다. 잠김 여부는 lockdown의 값으로만 판정합니다 |
 | `settings_in_front` | 필수 | 설정 앱이 앞에 나와야 합니다 (다른 창이 가리면 실패). 화면을 읽을 수 없을 때는 이 대신 `accessibility_tree`가 실패합니다 |
 | `accessibility_tree` | 필수 | 화면 요소가 실제로 읽히는지 |
 | `touch_input` | 필수 | 설정 앱 목록을 한 칸 내렸다 올려서 터치가 실제로 먹는지 확인합니다 (`--no-touch-test`로 건너뜀) |
 | `wifi` | 권장 | 기기의 무선 lockdown 플래그와 usbmuxd `Network` 연결 확인 (아래 참고) |
 | `auto_lock` | 권장 | 오래 쓸 때는 자동 잠금 '안 함' |
-| `do_not_disturb` | 알림 | `iph dnd on`으로 켠 방해금지 모드가 아직 켜져 있을 때만 나옵니다 |
+| `do_not_disturb` | 알림 | `phone dnd on`으로 켠 방해금지 모드가 아직 켜져 있을 때만 나옵니다 |
 
 준비 항목과 점검 결과를 읽는 방법은 [docs/onboarding.md](docs/onboarding.md)에 있습니다.
 
@@ -97,57 +99,57 @@ cargo install --path .        # ~/.cargo/bin/iph
 먼저 USB로 연결해 컴퓨터를 신뢰하고, 아이폰의 잠금을 푼 채 같은 LAN에 연결하세요. 컴퓨터는 유선 LAN을 써도 됩니다. 무선 연결 설정을 켜려면 USB 연결 상태에서 실행하세요:
 
 ```sh
-iph doctor --fix-wifi
+phone doctor --fix-wifi
 ```
 
 그래도 폰이 검색되지 않으면 아래 방법으로 IP를 등록할 수 있습니다. [무선 설정 상세](docs/onboarding.md#wi-fi-연결).
 
-**알림 배너는 화면 위쪽 탭을 가로챕니다.** 배너는 화면 위쪽을 덮고 접근성 트리에는 나오지 않습니다. 그때 화면 위쪽을 누르면 배너가 눌려 다른 앱이 열립니다 (만드는 동안 실제로 한 번 겪었습니다). 오래 맡길 때는 `iph dnd on`으로 방해금지 모드를 켜 두고, 끝나면 `iph dnd off`로 되돌리세요. 자세한 내용은 아래 [방해금지 모드](#방해금지-모드).
+**알림 배너는 화면 위쪽 탭을 가로챕니다.** 배너는 화면 위쪽을 덮고 접근성 트리에는 나오지 않습니다. 그때 화면 위쪽을 누르면 배너가 눌려 다른 앱이 열립니다 (만드는 동안 실제로 한 번 겪었습니다). 오래 맡길 때는 `phone dnd on`으로 방해금지 모드를 켜 두고, 끝나면 `phone dnd off`로 되돌리세요. 자세한 내용은 아래 [방해금지 모드](#방해금지-모드).
 
 ### 자동 검색에 실패할 때 IP 직접 연결
 
 USB로 신뢰한 폰이 검색되지 않으면 설정 → Wi-Fi → 네트워크 정보의 IP를 등록하세요:
 
 ```sh
-iph devices                                      # USB 연결 상태에서 UDID 확인
-iph --udid <UDID> connect --ip <아이폰-IP>          # USB를 뺀 뒤 실행
-iph --udid <UDID> read
+phone devices                                      # USB 연결 상태에서 UDID 확인
+phone --udid <UDID> connect --ip <아이폰-IP>          # USB를 뺀 뒤 실행
+phone --udid <UDID> read
 ```
 
 Apple 기기 연결 서비스가 필요합니다. CLI·MCP·스크립트는 선택한 UDID의 저장 주소를 공유하며, IP가 바뀌면 다시 등록하세요. [직접 연결 상세](docs/onboarding.md#ip-직접-연결).
 
 ## 명령
 
-모든 명령은 JSON을 냅니다. 사람이 볼 때는 `--human`. 기기는 `--udid`, `IPH_UDID`, `~/.config/iph/config.toml`의 `udid`, 연결된 폰이 하나면 그 폰 순서로 고릅니다. 폰이 여럿인데 고르지 않으면 목록과 함께 오류를 냅니다.
+모든 명령은 JSON을 냅니다. 사람이 볼 때는 `--human`. 기기는 `--udid`, `PHONE_UDID`, `~/.config/phone/config.toml`의 `udid`, 연결된 폰이 하나면 그 폰 순서로 고릅니다. 폰이 여럿인데 고르지 않으면 목록과 함께 오류를 냅니다.
 
 | 명령 | 하는 일 |
 |---|---|
-| `iph connect --ip <IP>` | 선택한 신뢰 기기의 IP를 검증하고 저장 |
-| `iph devices` | 연결된 폰, iOS 버전, 연결 방식, 준비 상태 |
-| `iph setup` / `iph doctor` | 준비 · 점검 |
-| `iph read [--app] [--all] [--full] [--raw] [--max-age ms]` | 화면 요소 목록. `--all` 화면 밖 포함, `--full` 식별자 포함(약 0.5초 더), `--raw` 번호 붙은 속성 전부 |
-| `iph find <셀렉터>` | 셀렉터에 맞는 요소 |
-| `iph tap <셀렉터 \| x,y> [--long ms] [--double]` | 요소 가운데(또는 좌표) 탭 |
-| `iph swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | 밀기. `--drag`는 멈춘 뒤 손을 떼서 관성 없이 옮깁니다 |
-| `iph scroll <up\|down> [--until 셀렉터] [--max N]` | 한 칸 스크롤, 또는 요소가 보일 때까지 |
-| `iph type <글> [--clear] [--submit]` | 키보드가 올라온 칸에 붙여넣기로 입력 (한글 · 이모지 가능). 클립보드는 되돌리고, 칸의 값을 확인합니다 |
-| `iph key <키>` | `return`, `esc`, `tab`, `cmd+a` … |
-| `iph button <home\|lock\|volume_up\|volume_down>` | 하드웨어 버튼 |
-| `iph launch <bundle id \| 이름> [--restart]` / `iph apps` | 앱 실행 · 목록 |
-| `iph screenshot [-o 파일]` | PNG 캡처 |
-| `iph batch <파일 \| ->` | JSON 단계 배열을 한 번에 |
-| `iph script <파일 \| -> [--arg k=v]` | 자바스크립트를 바로 실행 (`-`는 표준 입력) |
-| `iph run <이름> [--arg k=v]` / `iph scripts` | 저장된 스크립트 실행 · 목록 |
-| `iph mcp [--tools a,b]` | MCP 서버 (stdio) |
-| `iph dnd <on\|off\|status>` | 방해금지 모드를 켜기, 원래 집중 모드로 되돌리기, 지금 상태 보기 |
-| `iph stop` | 이 폰의 상주 프로세스 종료 |
+| `phone connect --ip <IP>` | 선택한 신뢰 기기의 IP를 검증하고 저장 |
+| `phone devices` | 연결된 폰, iOS 버전, 연결 방식, 준비 상태 |
+| `phone setup` / `phone doctor` | 준비 · 점검 |
+| `phone read [--app] [--all] [--full] [--raw] [--max-age ms]` | 화면 요소 목록. `--all` 화면 밖 포함, `--full` 식별자 포함(약 0.5초 더), `--raw` 번호 붙은 속성 전부 |
+| `phone find <셀렉터>` | 셀렉터에 맞는 요소 |
+| `phone tap <셀렉터 \| x,y> [--long ms] [--double]` | 요소 가운데(또는 좌표) 탭 |
+| `phone swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | 밀기. `--drag`는 멈춘 뒤 손을 떼서 관성 없이 옮깁니다 |
+| `phone scroll <up\|down> [--until 셀렉터] [--max N]` | 한 칸 스크롤, 또는 요소가 보일 때까지 |
+| `phone type <글> [--clear] [--submit]` | 키보드가 올라온 칸에 붙여넣기로 입력 (한글 · 이모지 가능). 클립보드는 되돌리고, 칸의 값을 확인합니다 |
+| `phone key <키>` | `return`, `esc`, `tab`, `cmd+a` … |
+| `phone button <home\|lock\|volume_up\|volume_down>` | 하드웨어 버튼 |
+| `phone launch <bundle id \| 이름> [--restart]` / `phone apps` | 앱 실행 · 목록 |
+| `phone screenshot [-o 파일]` | PNG 캡처 |
+| `phone batch <파일 \| ->` | JSON 단계 배열을 한 번에 |
+| `phone script <파일 \| -> [--arg k=v]` | 자바스크립트를 바로 실행 (`-`는 표준 입력) |
+| `phone run <이름> [--arg k=v]` / `phone scripts` | 저장된 스크립트 실행 · 목록 |
+| `phone mcp [--tools a,b]` | MCP 서버 (stdio) |
+| `phone dnd <on\|off\|status>` | 방해금지 모드를 켜기, 원래 집중 모드로 되돌리기, 지금 상태 보기 |
+| `phone stop` | 이 폰의 상주 프로세스 종료 |
 
 ### 셀렉터
 
-- 문자열 하나: 정확한 이름표. `iph tap "일반"`
+- 문자열 하나: 정확한 이름표. `phone tap "일반"`
 - `label="정확히"`, `label~="포함"`, `label/정규식/`
 - `role=button` (application, button, switch, text_field, search_field, key, tab, header, text, image, link, adjustable, other)
-- `id=…` 접근성 식별자, 또는 `iph read`가 준 요소 `id`. `id~=`, `id/정규식/`도 됩니다
+- `id=…` 접근성 식별자, 또는 `phone read`가 준 요소 `id`. `id~=`, `id/정규식/`도 됩니다
 - `value="…"`, `value~=…`
 - `within="<셀렉터>"` 그 요소 안쪽만, `index=N` N번째(0부터)
 - 여러 개가 맞으면 멋대로 고르지 않고 `ambiguous_selector` 오류와 후보를 냅니다
@@ -183,18 +185,18 @@ Apple 기기 연결 서비스가 필요합니다. CLI·MCP·스크립트는 선�
 | `warning` | 확인이 필요하면 `{code, message, hint}`가 붙습니다: `value_unchanged`(값 불변), `value_unreadable`(입력 후 읽기 불가), `value_change_unknown`(입력 전 값이 없어 비교 불가), `value_empty`(글을 보냈는데 빈 값), `clear_not_observed`(지우기 후에도 값이 남음). `--submit`이 없으면 경고가 있어도 기존 `ok: true` · `outcome: "done"`을 유지합니다. |
 | `submit_sent` | Return을 보냈으면 `true`, 요청하지 않았거나 보류했으면 `false`입니다. Return 전송 중 실패하여 나갔을 수 있으면 `null`입니다. |
 
-값이 그대로면 붙여넣기가 막혔을 수 있지만, 가림 · 앱 동작 · `--clear`로 같은 글을 다시 넣은 경우도 가능합니다. `iph read`나 스크린샷으로 확인하고 **자동으로 재입력하지 마세요.** 붙여넣기가 막힌 것으로 보이면 설정 → 앱 → 해당 앱 → **다른 앱에서 붙여넣기 → 허용**을 확인하세요. 값 불변만으로 권한 거부를 확정할 수는 없습니다.
+값이 그대로면 붙여넣기가 막혔을 수 있지만, 가림 · 앱 동작 · `--clear`로 같은 글을 다시 넣은 경우도 가능합니다. `phone read`나 스크린샷으로 확인하고 **자동으로 재입력하지 마세요.** 붙여넣기가 막힌 것으로 보이면 설정 → 앱 → 해당 앱 → **다른 앱에서 붙여넣기 → 허용**을 확인하세요. 값 불변만으로 권한 거부를 확정할 수는 없습니다.
 
-**`--submit`은 경고가 있으면 Return을 보류**하고 `ok: false` · `outcome: "unknown"` · `error.code: "type_not_verified"` · `submit_sent: false`(종료 코드 2)를 돌려줍니다. 붙여넣기/지우기 키는 이미 나갔습니다. 스크립트와 batch도 여기서 멈추며, 스크립트에서 오류를 잡아도 후속 호출은 폰에 가지 않습니다. 화면을 확인한 뒤 별도로 `iph key return`을 보낼지 판단하세요. `type` 재실행은 중복 입력을 일으킬 수 있습니다. `--clear --submit`으로 같은 글을 바꿔 넣어 값이 같아도 보류하는 의도적인 변경입니다. 지우기만 하는 경우(`iph type "" --clear`)는 빈 값을 읽으면 원래 비어 있었어도 제출할 수 있습니다. CLI · MCP · 스크립트가 같은 결과를 쓰고, batch의 type 단계와 `--human` 표시에도 관측값과 경고가 남습니다.
+**`--submit`은 경고가 있으면 Return을 보류**하고 `ok: false` · `outcome: "unknown"` · `error.code: "type_not_verified"` · `submit_sent: false`(종료 코드 2)를 돌려줍니다. 붙여넣기/지우기 키는 이미 나갔습니다. 스크립트와 batch도 여기서 멈추며, 스크립트에서 오류를 잡아도 후속 호출은 폰에 가지 않습니다. 화면을 확인한 뒤 별도로 `phone key return`을 보낼지 판단하세요. `type` 재실행은 중복 입력을 일으킬 수 있습니다. `--clear --submit`으로 같은 글을 바꿔 넣어 값이 같아도 보류하는 의도적인 변경입니다. 지우기만 하는 경우(`phone type "" --clear`)는 빈 값을 읽으면 원래 비어 있었어도 제출할 수 있습니다. CLI · MCP · 스크립트가 같은 결과를 쓰고, batch의 type 단계와 `--human` 표시에도 관측값과 경고가 남습니다.
 
 ## 설정
 
 ```toml
-# ~/.config/iph/config.toml
+# ~/.config/phone/config.toml
 udid = "00008130-…"
 
 [dnd]
-# focus = "업무"          # iph dnd on이 방해금지 모드 대신 켤 집중 모드 (폰에 보이는 이름 그대로)
+# focus = "업무"          # phone dnd on이 방해금지 모드 대신 켤 집중 모드 (폰에 보이는 이름 그대로)
 # control = "Focus"      # 폰 언어가 한국어 · 영어가 아닐 때, 제어 센터의 집중 모드 항목 이름
 
 [daemon]
@@ -210,19 +212,19 @@ memory_mb = 64           # 스크립트가 쓸 수 있는 메모리
 
 입력을 보내려면 폰이 '화면 공유 중' 상태여야 합니다 (폰 상단에 표시가 뜹니다). 이 상태는 소리 연결만으로 만들고, 화면 영상은 받지 않습니다 (`screen_video`). 화면 공유 중에 내용을 가리거나 경고하는 앱이라면 `input_idle_secs = 0`으로 두세요. 입력을 보내는 동안만 공유 상태가 되고, 대신 입력마다 3~4초쯤 더 걸립니다. 읽기는 화면 공유와 상관없습니다.
 
-`iph`는 누르는 대상을 가리지 않습니다. 결제 · 송금 · 주문 버튼도 다른 버튼과 똑같이 누르고, 앞에 어떤 앱이 있든 입력을 보냅니다. 무엇을 누를지는 부르는 쪽이 정합니다.
+`phone`은 누르는 대상을 가리지 않습니다. 결제 · 송금 · 주문 버튼도 다른 버튼과 똑같이 누르고, 앞에 어떤 앱이 있든 입력을 보냅니다. 무엇을 누를지는 부르는 쪽이 정합니다.
 
 ### 방해금지 모드
 
-- **켜기 · 끄기:** `iph dnd on`은 방해금지 모드를 켜고, `iph dnd off`는 켜기 전의 집중 모드로 되돌립니다. `iph`가 스스로 켜거나 끄지는 않습니다.
-- **되돌리는 곳:** `on` 때 켜져 있던 집중 모드(없었으면 '없음')를 `~/Library/Application Support/iph/<udid>.dnd.json`에 적어 두고, `off` 때 그대로 되돌립니다. 원래 방해금지 모드였으면 손대지 않고, 그 사이에 사람이 다른 집중 모드로 바꿨으면 그것도 그대로 둡니다. 상주 프로세스가 끝나도 기록은 남습니다.
+- **켜기 · 끄기:** `phone dnd on`은 방해금지 모드를 켜고, `phone dnd off`는 켜기 전의 집중 모드로 되돌립니다. `phone`이 스스로 켜거나 끄지는 않습니다.
+- **되돌리는 곳:** `on` 때 켜져 있던 집중 모드(없었으면 '없음')를 `~/Library/Application Support/phone/<udid>.dnd.json`에 적어 두고, `off` 때 그대로 되돌립니다. 원래 방해금지 모드였으면 손대지 않고, 그 사이에 사람이 다른 집중 모드로 바꿨으면 그것도 그대로 둡니다. 상주 프로세스가 끝나도 기록은 남습니다.
 - **방법:** 폰에 이걸 바꿔 주는 서비스가 없어서 사람과 같은 방법을 씁니다. 제어 센터를 내리고, '집중 모드'를 길게 눌러 목록에서 고르고, 홈을 두 번 눌러 닫습니다. 그래서 화면에 제어 센터가 잠깐 보이고, 한 번에 보통 11~15초, 상주 프로세스가 막 떴을 때는 19~36초가 걸립니다.
 - **필요한 것:** 제어 센터 첫 페이지에 '집중 모드' 항목이 있고, 앱을 쓰는 중에도 제어 센터가 열려야 합니다. 폰 언어가 한국어 · 영어가 아니면 `[dnd]`의 `control`, `focus`에 폰에 보이는 이름을 적으세요.
 - **막지 못하는 것:** 방해금지 모드에서도 뜨는 것(알람 · 타이머, 긴급 재난 문자, 방해금지 모드 설정에서 허용해 둔 사람 · 앱)과 시스템 팝업. 방해금지 모드가 켜진 동안 실제로 배너가 안 뜨는지는 따로 확인하지 않았습니다 (iOS의 동작에 기댑니다).
 
 ## 스크립트
 
-자주 하는 순서는 자바스크립트로 적어 한 번에 실행합니다. `read`, `tap`, `scroll` 같은 명령이 그대로 함수이고, 반복 · 조건 · 변수는 언어의 것을 씁니다. 엔진(QuickJS)이 `iph` 안에 들어 있어 따로 설치할 것은 없습니다.
+자주 하는 순서는 자바스크립트로 적어 한 번에 실행합니다. `read`, `tap`, `scroll` 같은 명령이 그대로 함수이고, 반복 · 조건 · 변수는 언어의 것을 씁니다. 엔진(QuickJS)이 `phone` 안에 들어 있어 따로 설치할 것은 없습니다.
 
 ```js
 // 설정에서 iOS 버전 읽기
@@ -234,19 +236,19 @@ return { ios_version: readField({ selector: { label: "iOS 버전" }, take: "valu
 ```
 
 ```sh
-iph script flow.js --arg city=서울     # 파일을 바로 실행
-iph script - <<'EOF'                   # 표준 입력으로
+phone script flow.js --arg city=서울     # 파일을 바로 실행
+phone script - <<'EOF'                   # 표준 입력으로
 return { front: read({ app: true }).apps[0].name };
 EOF
-iph run settings-version               # 저장된 스크립트를 이름으로
-iph scripts                            # 저장된 스크립트 목록
+phone run settings-version               # 저장된 스크립트를 이름으로
+phone scripts                            # 저장된 스크립트 목록
 ```
 
 ```json
 {"ok": true, "outcome": "done", "elapsed_ms": 10712, "outputs": {"ios_version": "27.0.1"}, "logs": [], "calls": 5, "inputs_sent": 4, "script": "settings-version", "source": "builtin:settings-version"}
 ```
 
-- **저장하는 곳:** `~/.config/iph/scripts/<이름>.js`(개인, 우선) → 저장소 `scripts/`(예제, 바이너리에 들어 있음). 파일의 첫 주석 줄이 `iph scripts`에 설명으로 나옵니다.
+- **저장하는 곳:** `~/.config/phone/scripts/<이름>.js`(개인, 우선) → 저장소 `scripts/`(예제, 바이너리에 들어 있음). 파일의 첫 주석 줄이 `phone scripts`에 설명으로 나옵니다.
 - **인자와 결과:** `--arg k=v`는 `args.k`로 들어옵니다 (글자이므로 숫자는 `Number(args.n)`). `return`한 객체와 `output(k, v)`로 넣은 값이 결과의 `outputs`가 되고, `log(…)`로 남긴 줄은 `logs`에 담깁니다.
 
 | 함수 | 내용 |
@@ -272,11 +274,11 @@ iph scripts                            # 저장된 스크립트 목록
 - `readList`는 화면마다 한 번 읽고, 그 화면의 마지막 두 줄이 다음 화면 맨 위에 오도록 스크롤 거리를 스스로 정합니다 (폰 크기와 앱에 따라 달라서 읽은 위치로 계산합니다). 겹치는 두 줄로 앞뒤 화면을 이어 붙이므로 사이에 빠진 줄이 없는지 알 수 있습니다. 목록 끝이라고 판단하기 전에는 위아래로 한 번 움직여 확인합니다.
 - **칸막이:** 스크립트는 파일 · 네트워크 · 다른 프로세스에 닿지 못합니다 (모듈 불러오기와 타이머도 없습니다). `Date`, `JSON`, `RegExp`, `Map` 같은 언어 기능은 그대로 있습니다. `[script] timeout_secs`(기본 300초)나 `memory_mb`(기본 64MB)를 넘으면 중단합니다.
 
-예제: [`settings-version`](scripts/settings-version.js), [`calculator-multiply`](scripts/calculator-multiply.js), [`clock-world-list`](scripts/clock-world-list.js), 반복 · 조건을 쓰는 [`settings-list`](scripts/settings-list.js). 금융 · 배달 같은 개인 스크립트는 저장소에 넣지 말고 `~/.config/iph/scripts/`에 두세요.
+예제: [`settings-version`](scripts/settings-version.js), [`calculator-multiply`](scripts/calculator-multiply.js), [`clock-world-list`](scripts/clock-world-list.js), 반복 · 조건을 쓰는 [`settings-list`](scripts/settings-list.js). 금융 · 배달 같은 개인 스크립트는 저장소에 넣지 말고 `~/.config/phone/scripts/`에 두세요.
 
 ### batch
 
-`iph batch`는 JSON 단계 배열을 순서대로 실행하고 첫 실패에서 멈춥니다. 반복이나 조건이 필요 없는 짧은 순서용입니다.
+`phone batch`는 JSON 단계 배열을 순서대로 실행하고 첫 실패에서 멈춥니다. 반복이나 조건이 필요 없는 짧은 순서용입니다.
 
 | 단계 | 내용 |
 |---|---|
@@ -294,19 +296,19 @@ iph scripts                            # 저장된 스크립트 목록
 ## MCP
 
 ```sh
-claude mcp add iph -- iph mcp                                   # Claude Code
-codex mcp add iph -- iph mcp                                    # Codex
-iph mcp --tools read,find,script                                # 일부 도구만 내놓기
+claude mcp add phone -- phone mcp                                   # Claude Code
+codex mcp add phone -- phone mcp                                    # Codex
+phone mcp --tools read,find,script                                # 일부 도구만 내놓기
 ```
 
-에이전트가 `iph`를 알아서 쓰게 하려면 스킬을 걸어 둡니다 (MCP 등록 없이 셸에서 `iph`를 부르는 것만으로도 됩니다).
+에이전트가 `phone`을 알아서 쓰게 하려면 스킬을 걸어 둡니다 (MCP 등록 없이 셸에서 `phone`을 부르는 것만으로도 됩니다).
 
 ```sh
-ln -s "$PWD/skills/iph" ~/.claude/skills/iph                    # Claude Code
-ln -s "$PWD/skills/iph" ~/.codex/skills/iph                     # Codex
+ln -s "$PWD/skills/phone" ~/.claude/skills/phone                    # Claude Code
+ln -s "$PWD/skills/phone" ~/.codex/skills/phone                     # Codex
 ```
 
-도구: `iph_connect`, `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. 인자와 결과는 CLI와 같습니다. `iph_script`는 `code`(자바스크립트)와 `args`를, `iph_run`은 `name`과 `args`를 받습니다. 에이전트용 안내는 [skills/iph/SKILL.md](skills/iph/SKILL.md)에 있습니다.
+도구: `phone_connect`, `phone_read`, `phone_find`, `phone_tap`, `phone_swipe`, `phone_scroll`, `phone_type`, `phone_key`, `phone_button`, `phone_launch`, `phone_apps`, `phone_screenshot`, `phone_batch`, `phone_script`, `phone_run`, `phone_scripts`, `phone_doctor`, `phone_dnd`. 인자와 결과는 CLI와 같습니다. `phone_script`는 `code`(자바스크립트)와 `args`를, `phone_run`은 `name`과 `args`를 받습니다. 에이전트용 안내는 [skills/phone/SKILL.md](skills/phone/SKILL.md)에 있습니다.
 
 ## 속도
 
@@ -314,36 +316,36 @@ iPhone 15 Pro Max · iOS 27.0.1 · Wi-Fi, 상주 프로세스가 붙어 있는 �
 
 | 동작 | 걸린 시간 |
 |---|---|
-| `iph read` (설정 첫 화면, 10회) | 중앙값 1.35초, 최대 2.10초 |
-| `iph read --full` (10회) | 중앙값 1.45초, 최대 1.79초 |
-| `iph tap` + 화면 확인 (20회, 놓침 0) | 중앙값 1.75초, 최대 4.30초 |
-| `iph scroll` 한 칸 + 확인 | 2.1~2.6초 |
-| `iph type` (메모, 확인 · 클립보드 복원 포함) | 4~7초 |
+| `phone read` (설정 첫 화면, 10회) | 중앙값 1.35초, 최대 2.10초 |
+| `phone read --full` (10회) | 중앙값 1.45초, 최대 1.79초 |
+| `phone tap` + 화면 확인 (20회, 놓침 0) | 중앙값 1.75초, 최대 4.30초 |
+| `phone scroll` 한 칸 + 확인 | 2.1~2.6초 |
+| `phone type` (메모, 확인 · 클립보드 복원 포함) | 4~7초 |
 | 스크립트 `settings-version` (호출 5번, USB로 연결) | 9.9~13.3초 (8회) |
-| 상주 프로세스가 없을 때 첫 `iph read` (터널 + 구독 포함) | 약 2~3초 |
+| 상주 프로세스가 없을 때 첫 `phone read` (터널 + 구독 포함) | 약 2~3초 |
 | 방해금지 모드 켜기 또는 되돌리기 | 연결이 붙어 있을 때 중앙값 12.5초 (11회, 10.9~14.2초). 상주 프로세스를 막 띄웠을 때 19~36초 |
 
 한 번 읽는 데 1초 넘게 걸리는 것은 폰 쪽 사정입니다. 폰은 요청을 받고 약 1.1초 조용히 기다린 뒤에야 화면을 내보냅니다. 화면이 스스로 자주 바뀌는 앱에서는 옛 화면을 읽지 않으려고 두 번 읽어 맞춰 보기 때문에 단계마다 1~2초가 더 듭니다. 자세한 동작은 [docs/how-it-works.md](docs/how-it-works.md).
 
 ## 알려진 한계
 
-- 검증한 기기는 한 대입니다. 다른 iOS 버전에서는 접근성 속성 번호가 다를 수 있습니다 (`iph read --raw`로 확인).
+- 검증한 기기는 한 대입니다. 다른 iOS 버전에서는 접근성 속성 번호가 다를 수 있습니다 (`phone read --raw`로 확인).
 - 화면이 계속 움직이는 앱(애니메이션, 동영상)은 읽기가 더 오래 걸립니다.
-- 알림 배너 · 시스템 팝업은 앱의 트리에 나오지 않습니다. 배너는 `iph dnd on`으로 줄일 수 있지만, 방해금지 모드에서도 뜨는 것은 막지 못합니다.
-- 화면 읽기 서비스가 응답하지 않을 수 있습니다. 마지막 화면이 시스템 패널이거나 이전 재시작이 도움이 되지 않은 경우를 제외하고, 최대 2분에 한 번 재시작을 시도합니다. 화면 녹화 중 제어 센터를 읽지 못하면 `iph button home`으로 닫거나 `iph launch`로 앱을 앞으로 가져온 뒤 다시 읽으세요. [복구 동작](docs/how-it-works.md#6-연결과-화면-읽기-복구)을 참고하세요.
+- 알림 배너 · 시스템 팝업은 앱의 트리에 나오지 않습니다. 배너는 `phone dnd on`으로 줄일 수 있지만, 방해금지 모드에서도 뜨는 것은 막지 못합니다.
+- 화면 읽기 서비스가 응답하지 않을 수 있습니다. 마지막 화면이 시스템 패널이거나 이전 재시작이 도움이 되지 않은 경우를 제외하고, 최대 2분에 한 번 재시작을 시도합니다. 화면 녹화 중 제어 센터를 읽지 못하면 `phone button home`으로 닫거나 `phone launch`로 앱을 앞으로 가져온 뒤 다시 읽으세요. [복구 동작](docs/how-it-works.md#6-연결과-화면-읽기-복구)을 참고하세요.
 - 세로 화면만 다룹니다.
-- `iph apps`의 이름은 폰이 알려 주는 이름(대개 영어)입니다. 실행은 bundle id가 확실합니다.
-- `iph type`은 클립보드의 글자(또는 그림 한 장)만 되돌립니다. **앱에서 복사한 내용(메모의 글처럼 서식이 함께 있는 것)은 되돌리지 못합니다.** 그 내용은 컴퓨터에서 읽으려 하면 폰의 클립보드가 1분쯤 멈추기 때문에 읽지 않고, 입력이 끝나면 클립보드를 비웁니다. 결과에 `clipboard_restored: false`와 `clipboard_note`가 나옵니다.
+- `phone apps`의 이름은 폰이 알려 주는 이름(대개 영어)입니다. 실행은 bundle id가 확실합니다.
+- `phone type`은 클립보드의 글자(또는 그림 한 장)만 되돌립니다. **앱에서 복사한 내용(메모의 글처럼 서식이 함께 있는 것)은 되돌리지 못합니다.** 그 내용은 컴퓨터에서 읽으려 하면 폰의 클립보드가 1분쯤 멈추기 때문에 읽지 않고, 입력이 끝나면 클립보드를 비웁니다. 결과에 `clipboard_restored: false`와 `clipboard_note`가 나옵니다.
 - 잠긴 폰에서는 동작하지 않습니다. Face ID · 암호 입력은 대신하지 않습니다.
 - 개발자 디스크 이미지 자동 연결은 코드만 있고 실제로 돌려 보지 못했습니다 (시험 폰은 이미 연결돼 있었습니다).
 
 ## 구조
 
-`iph` 한 번 실행 = 상주 프로세스(`iph daemon`, 첫 호출 때 자동으로 뜸)에 유닉스 소켓(`~/Library/Application Support/iph/<udid>.sock`)으로 요청 하나. 상주 프로세스가 폰별로 터널, 접근성 구독, 터치 입력 세션을 붙잡고 요청을 차례대로 처리합니다. 30분 동안 요청이 없으면 스스로 끝납니다.
+`phone` 한 번 실행 = 상주 프로세스(`phone daemon`, 첫 호출 때 자동으로 뜸)에 유닉스 소켓(`~/Library/Application Support/phone/<udid>.sock`)으로 요청 하나. 상주 프로세스가 폰별로 터널, 접근성 구독, 터치 입력 세션을 붙잡고 요청을 차례대로 처리합니다. 30분 동안 요청이 없으면 스스로 끝납니다.
 
 ```
-iph (CLI) ─┐
-iph mcp  ──┼─ unix socket ─ iph daemon ─ lockdown → CoreDeviceProxy → 사용자 공간 TCP 터널 → RSD
+phone (CLI) ─┐
+phone mcp  ──┼─ unix socket ─ phone daemon ─ lockdown → CoreDeviceProxy → 사용자 공간 TCP 터널 → RSD
            ┘                              ├ axAuditDaemon.remoteAXService   (화면 요소)
                                           ├ displayservice + universalhid   (터치 · 키보드)
                                           ├ pasteboardservice               (클립보드)
@@ -356,25 +358,25 @@ iph mcp  ──┼─ unix socket ─ iph daemon ─ lockdown → CoreDeviceProx
 기기가 전혀 발견되지 않아도 명령 한 번으로 이슈에 첨부할 진단 파일을 만듭니다.
 
 ```sh
-iph diagnose
-iph diagnose -- read --full        # 문제가 나는 iph 명령을 한 번 실행하고 출력 수집
-iph diagnose --wifi -- read        # USB를 연결한 채 시작하고, 안내가 나오면 케이블 제거
+phone diagnose
+phone diagnose -- read --full        # 문제가 나는 phone 명령을 한 번 실행하고 출력 수집
+phone diagnose --wifi -- read        # USB를 연결한 채 시작하고, 안내가 나오면 케이블 제거
 ```
 
-생성된 `iph-diagnostics-*.txt`를 재현 순서·기대한 결과·실제 결과와 함께 [GitHub 이슈](https://github.com/HyunSeob/iphone-cli/issues/new/choose)에 첨부하세요. 파일은 읽기 쉬운 JSON이며 버전·네트워크 상태, usbmuxd 원본 응답과 해석된 목록, 기기 정보·무선 연결 설정, 페어링·연결·터널의 단계별 오류와 시간, Bonjour 광고와 해당 주소의 TCP 연결 검사, 최근 연결 이벤트·상주 프로세스 로그·관련 macOS 시스템 로그를 담습니다. 분석을 위해 UDID·주소·실행 인자·수집한 출력을 유지하며, 페어링 기록과 개인키는 수집하지 않습니다.
+생성된 `phone-diagnostics-*.txt`를 재현 순서·기대한 결과·실제 결과와 함께 [GitHub 이슈](https://github.com/HyeokE/phone-cli/issues/new/choose)에 첨부하세요. 파일은 읽기 쉬운 JSON이며 버전·네트워크 상태, usbmuxd 원본 응답과 해석된 목록, 기기 정보·무선 연결 설정, 페어링·연결·터널의 단계별 오류와 시간, Bonjour 광고와 해당 주소의 TCP 연결 검사, 최근 연결 이벤트·상주 프로세스 로그·관련 macOS 시스템 로그를 담습니다. 분석을 위해 UDID·주소·실행 인자·수집한 출력을 유지하며, 페어링 기록과 개인키는 수집하지 않습니다.
 
 `--wifi`는 USB 연결 상태를 먼저 기록하고 케이블을 뺄 동안 30초간 기기 발견 변화를 관찰합니다. 관찰 시간은 `--duration 60`처럼 바꿀 수 있습니다. USB 상태에서 고른 폰은 목록에서 사라져도 계속 진단 대상으로 유지합니다. 폰이 여러 대면 `--udid`로 고르세요. Bonjour 광고는 다른 기기의 것일 수도 있어서 원본과 함께 기록합니다. 윈도에서는 `dns-sd`가 설치되어 있으면 Bonjour도 검사합니다. 도구가 없거나 검사가 실패해도 그 이유를 기록하고 파일을 만듭니다.
 
 저장 위치는 `-o report.txt`, 재현 명령의 제한 시간은 `--command-timeout 180`으로 지정합니다. 기존 파일은 덮어쓰지 않습니다. 수집 자체는 폰 설정 변경·개발자 이미지 설치·화면 조작을 하지 않습니다. `--` 뒤에 준 명령은 원래 동작을 수행하며, 진단 기능은 그 명령을 한 번 실행하고 재실행하지 않습니다. 일반 명령 수집에서는 진단 세션을 열어 증상이 달라지지 않도록 문제 명령 실행 후에 기기 연결 검사를 합니다. `setup`·`mcp`·`daemon`·중첩된 `diagnose`는 재현 명령으로 받지 않습니다. Ctrl+C로 중단해도 모은 내용은 파일에 저장합니다. 종료 코드 0은 파일 저장 성공을 뜻하며, 재현 명령의 종료 코드와 출력은 파일 안에 있습니다.
 
-연결 이벤트는 기기를 고르기 전의 실패부터 자동으로 기록합니다. 맥은 `~/Library/Application Support/iph/events/`, 윈도는 `%LOCALAPPDATA%\iph\events\`이며, 파일당 512 KiB에서 교체하고 최근 32개를 유지합니다. 진단 파일에는 최근 갱신된 이벤트 파일 8개와 선택한 폰의 상주 로그 끝부분을 넣습니다. 수집하는 각 출력은 마지막 256 KiB까지 남기고 잘렸는지 표시합니다. `USBMUXD_SOCKET_ADDRESS`로 기본값과 다른 usbmuxd 소켓을 쓰면 일반 명령과 진단 모두 같은 주소를 사용합니다.
+연결 이벤트는 기기를 고르기 전의 실패부터 자동으로 기록합니다. 맥은 `~/Library/Application Support/phone/events/`, 윈도는 `%LOCALAPPDATA%\phone\events\`이며, 파일당 512 KiB에서 교체하고 최근 32개를 유지합니다. 진단 파일에는 최근 갱신된 이벤트 파일 8개와 선택한 폰의 상주 로그 끝부분을 넣습니다. 수집하는 각 출력은 마지막 256 KiB까지 남기고 잘렸는지 표시합니다. `USBMUXD_SOCKET_ADDRESS`로 기본값과 다른 usbmuxd 소켓을 쓰면 일반 명령과 진단 모두 같은 주소를 사용합니다.
 
 ## 개발
 
 ```sh
 cargo test          # 폰 없이 도는 시험: 파서(실제 계산기 화면 덤프), 셀렉터, 스크립트
-IPH_TRACE=1 iph …   # 상주 프로세스 로그에 요청 · 덤프 시각을 남김 (~/Library/Application Support/iph/<udid>.log)
-IPH_PCAP=<폴더> iph … # 터널의 패킷을 Wireshark용 파일로 남김. 화면 내용이 들어 있으니 다 보면 지울 것
+PHONE_TRACE=1 phone …   # 상주 프로세스 로그에 요청 · 덤프 시각을 남김 (~/Library/Application Support/phone/<udid>.log)
+PHONE_PCAP=<폴더> phone … # 터널의 패킷을 Wireshark용 파일로 남김. 화면 내용이 들어 있으니 다 보면 지울 것
 ```
 
 **릴리스:** `Cargo.toml`의 `version`을 올려 main에 푸시하면 됩니다. [릴리스 워크플로](.github/workflows/release.yml)가 `vX.Y.Z` 태그를 달고, 맥 · 윈도 바이너리를 GitHub 릴리스로 올리고(`install.sh`가 받는 파일), crates.io에 크레이트를 게시합니다. crates.io 게시는 Trusted Publishing이라 어디에도 토큰을 두지 않습니다. 버전을 안 바꾼 푸시는 아무것도 릴리스하지 않습니다.

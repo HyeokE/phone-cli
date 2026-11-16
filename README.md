@@ -1,22 +1,24 @@
-# iphone-cli (`iph`)
+# phone-cli (`phone`)
+
+> Fork of [HyunSeob/iphone-cli](https://github.com/HyunSeob/iphone-cli), renamed to phone-cli (`phone`) ahead of Android support.
 
 **Let AI agents read and operate any app on a real iPhone — straight from your terminal.**
 
 **No Xcode. No WebDriverAgent. No app installed on the phone. 100% Rust.**
 
 - **Direct Apple developer services** — connects over USB or Wi-Fi to the same accessibility and HID services Xcode uses, with no signing or test runner
-- **Accessibility tree, not screenshots** — reads structured UI elements cleanly, and runs multi-step flows in one call with a built-in QuickJS engine (`iph script`)
-- **Agent-ready** — CLI + MCP server (`iph mcp`) + safety-first outcomes (`done` / `not_sent` / `unknown`)
+- **Accessibility tree, not screenshots** — reads structured UI elements cleanly, and runs multi-step flows in one call with a built-in QuickJS engine (`phone script`)
+- **Agent-ready** — CLI + MCP server (`phone mcp`) + safety-first outcomes (`done` / `not_sent` / `unknown`)
 - **Single native binary (macOS & Windows)** — no Python, Node.js, or Appium runtime; install one binary and target a real iPhone on **iOS 27+**
 
 한국어: [README.ko.md](README.ko.md)
 
-![iphone-cli demo](docs/demo.gif)
+![phone-cli demo](docs/demo.gif)
 
 Built on the principle of [Poki](https://github.com/JosssphZhou/poki) (a new implementation from its documented behaviour and device experiments, with no Poki code). Device communication relies on [idevice](https://github.com/jkcoxson/idevice) (MIT).
 
 ```console
-$ iph read --human
+$ phone read --human
 Settings  430x932  15 elements
 application   "Settings"  @0,0 430x932
   header        "Settings"  @20,119.3 53.7x37
@@ -25,7 +27,7 @@ application   "Settings"  @0,0 430x932
   button        "General"  @20,700 390x49.3
   …
 
-$ iph tap "General"
+$ phone tap "General"
 {"ok":true,"outcome":"done","elapsed_ms":1752,"sent":true,"verified":true,"screen_changed":true,…}
 ```
 
@@ -45,47 +47,47 @@ On Windows, `doctor`, reading, touch and scripts were checked with one iPhone19,
 Neither Rust nor Xcode is needed. On a Mac it is one line in Terminal (it uses only tools macOS ships: `curl`, `tar`, `shasum`).
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/HyunSeob/iphone-cli/main/install.sh | sh
-iph setup                     # walks through what the phone needs
+curl -fsSL https://raw.githubusercontent.com/HyeokE/phone-cli/main/install.sh | sh
+phone setup                     # walks through what the phone needs
 ```
 
-It downloads the universal binary (Apple silicon and Intel) from the latest [release](https://github.com/HyunSeob/iphone-cli/releases), checks its checksum and puts it at `~/.local/bin/iph`. `IPH_INSTALL_DIR` picks another folder and `IPH_VERSION=v0.1.0` a specific version. On Windows, download `iph-windows-x86_64.zip` from the releases and put `iph.exe` in a folder on your PATH.
+It downloads the universal binary (Apple silicon and Intel) from the latest [release](https://github.com/HyeokE/phone-cli/releases), checks its checksum and puts it at `~/.local/bin/phone`. `PHONE_INSTALL_DIR` picks another folder and `PHONE_VERSION=v0.1.0` a specific version. On Windows, download `phone-windows-x86_64.zip` from the releases and put `phone.exe` in a folder on your PATH.
 
 - **Mac:** plug the phone in and tap Trust on it; that pairs it.
 - **Windows:** Apple's device service must be installed: the **Apple Devices** app from the Microsoft Store, or just the service with `winget install Apple.AppleMobileDeviceSupport`. Then plug the phone in and tap Trust.
-- **Developer disk image:** when the phone lacks it, `iph doctor` installs it. It uses Xcode's copy when the Mac has one, and otherwise fetches one once from the public [doronz88/DeveloperDiskImage](https://github.com/doronz88/DeveloperDiskImage) repository (about 18 MB, pinned commit and SHA-256). The iph repository contains no Apple files.
+- **Developer disk image:** when the phone lacks it, `phone doctor` installs it. It uses Xcode's copy when the Mac has one, and otherwise fetches one once from the public [doronz88/DeveloperDiskImage](https://github.com/doronz88/DeveloperDiskImage) repository (about 18 MB, pinned commit and SHA-256). The phone repository contains no Apple files.
 
-With Rust 1.88 or later, the crate on [crates.io](https://crates.io/crates/iphone-cli) installs the same `iph` (building it takes a few minutes; on Windows it needs Visual Studio Build Tools (C++)):
+With Rust 1.88 or later, the crate on [crates.io](https://crates.io/crates/phone-cli) installs the same `phone` (building it takes a few minutes; on Windows it needs Visual Studio Build Tools (C++)):
 
 ```sh
-cargo install iphone-cli      # ~/.cargo/bin/iph
+cargo install phone-cli      # ~/.cargo/bin/phone
 ```
 
 Or from a checkout:
 
 ```sh
-git clone https://github.com/HyunSeob/iphone-cli
-cd iphone-cli
-cargo install --path .        # ~/.cargo/bin/iph
+git clone https://github.com/HyeokE/phone-cli
+cd phone-cli
+cargo install --path .        # ~/.cargo/bin/phone
 ```
 
 ## First-time setup
 
-`iph setup` runs `iph doctor`, says in one line what to do on the phone for each failed check, and checks again. An agent can read `checks[].user_action` from `iph doctor` (JSON) and guide the user.
+`phone setup` runs `phone doctor`, says in one line what to do on the phone for each failed check, and checks again. An agent can read `checks[].user_action` from `phone doctor` (JSON) and guide the user.
 
 | Check | Required | What it is |
 |---|---|---|
 | `pairing` | yes | The Mac holds a pairing record for the phone. If not: connect by USB and tap Trust |
 | `connection` | yes | The phone is visible over USB or the same Wi-Fi |
-| `developer_mode` | yes | Settings → Privacy & Security → Developer Mode. If it is off, `iph doctor` makes that switch appear |
-| `developer_disk_image` | yes | Source of the accessibility, display and input services. When missing, `iph doctor` fetches and installs it (see Install) |
+| `developer_mode` | yes | Settings → Privacy & Security → Developer Mode. If it is off, `phone doctor` makes that switch appear |
+| `developer_disk_image` | yes | Source of the accessibility, display and input services. When missing, `phone doctor` fetches and installs it (see Install) |
 | `screen_unlocked` | yes | The phone is unlocked. Only lockdown's word decides a lock |
 | `settings_in_front` | yes | Settings comes to the front (fails when something covers it). When the screen cannot be read, `accessibility_tree` fails instead |
 | `accessibility_tree` | yes | Screen elements can really be read |
 | `touch_input` | yes | Scrolls the Settings list down one step and back to see that touch lands (`--no-touch-test` skips it) |
 | `wifi` | recommended | Wireless lockdown flags and the phone's usbmuxd `Network` entry (see below) |
 | `auto_lock` | recommended | Auto-Lock → Never for long sessions |
-| `do_not_disturb` | info | Shown only while Do Not Disturb from `iph dnd on` is still on |
+| `do_not_disturb` | info | Shown only while Do Not Disturb from `phone dnd on` is still on |
 
 Setup requirements and how to interpret the checks are in [docs/onboarding.md](docs/onboarding.md) (Korean).
 
@@ -94,57 +96,57 @@ Setup requirements and how to interpret the checks are in [docs/onboarding.md](d
 Pair by USB first, then keep the iPhone unlocked on the same LAN. The computer may use Ethernet. To enable wireless connections, run this while USB is attached:
 
 ```sh
-iph doctor --fix-wifi
+phone doctor --fix-wifi
 ```
 
 If the phone is still not discovered, register its IP below. [Wireless setup details](docs/onboarding.md#wi-fi-연결) (Korean).
 
-**Notification banners take taps near the top of the screen.** Banners cover the top of the screen and are not part of the accessibility tree. A tap near the top then lands on the banner and opens another app (this happened once during development). For long unattended work turn Do Not Disturb on with `iph dnd on`, and put it back with `iph dnd off` afterwards. Details: [Do Not Disturb](#do-not-disturb) below.
+**Notification banners take taps near the top of the screen.** Banners cover the top of the screen and are not part of the accessibility tree. A tap near the top then lands on the banner and opens another app (this happened once during development). For long unattended work turn Do Not Disturb on with `phone dnd on`, and put it back with `phone dnd off` afterwards. Details: [Do Not Disturb](#do-not-disturb) below.
 
 ### Direct IP when automatic discovery fails
 
 For a USB-trusted phone missing from discovery, use the IP shown in Settings → Wi-Fi → the network's info button:
 
 ```sh
-iph devices                                      # while USB is attached: note the UDID
-iph --udid <UDID> connect --ip <iPhone-IP>         # after unplugging USB
-iph --udid <UDID> read
+phone devices                                      # while USB is attached: note the UDID
+phone --udid <UDID> connect --ip <iPhone-IP>         # after unplugging USB
+phone --udid <UDID> read
 ```
 
 The Apple device service is still required. CLI, MCP and scripts share the saved address for the selected UDID; register it again if the IP changes. [Connection details](docs/onboarding.md#ip-직접-연결) (Korean).
 
 ## Commands
 
-Every command prints JSON; add `--human` for people. The device is chosen by `--udid`, then `IPH_UDID`, then `udid` in `~/.config/iph/config.toml`, then the only connected phone. With several phones and none chosen, you get an error with the list.
+Every command prints JSON; add `--human` for people. The device is chosen by `--udid`, then `PHONE_UDID`, then `udid` in `~/.config/phone/config.toml`, then the only connected phone. With several phones and none chosen, you get an error with the list.
 
 | Command | Does |
 |---|---|
-| `iph connect --ip <IP>` | Verify and save the selected paired phone's IP |
-| `iph devices` | Connected phones, iOS version, connection, readiness |
-| `iph setup` / `iph doctor` | Preparation and checks |
-| `iph read [--app] [--all] [--full] [--raw] [--max-age ms]` | Elements on screen. `--all` includes off-screen ones, `--full` adds identifiers (about 0.5 s more), `--raw` attaches every numbered attribute |
-| `iph find <selector>` | Elements matching a selector |
-| `iph tap <selector \| x,y> [--long ms] [--double]` | Tap the middle of an element, or a point |
-| `iph swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | Swipe. `--drag` slows to a stop before lifting, so nothing coasts |
-| `iph scroll <up\|down> [--until selector] [--max N]` | One step, or until an element shows |
-| `iph type <text> [--clear] [--submit]` | Paste text into the field that has the keyboard (any language, emoji). The clipboard is put back and the field's value checked |
-| `iph key <key>` | `return`, `esc`, `tab`, `cmd+a` … |
-| `iph button <home\|lock\|volume_up\|volume_down>` | Hardware buttons |
-| `iph launch <bundle id \| name> [--restart]` / `iph apps` | Launch an app, list apps |
-| `iph screenshot [-o file]` | PNG capture |
-| `iph batch <file \| ->` | A JSON array of steps in one call |
-| `iph script <file \| -> [--arg k=v]` | Run JavaScript as given (`-` reads stdin) |
-| `iph run <name> [--arg k=v]` / `iph scripts` | Run a saved script, list saved scripts |
-| `iph mcp [--tools a,b]` | MCP server on stdio |
-| `iph dnd <on\|off\|status>` | Turn Do Not Disturb on, put the earlier Focus back, or show the current state |
-| `iph stop` | Stop the resident process for this phone |
+| `phone connect --ip <IP>` | Verify and save the selected paired phone's IP |
+| `phone devices` | Connected phones, iOS version, connection, readiness |
+| `phone setup` / `phone doctor` | Preparation and checks |
+| `phone read [--app] [--all] [--full] [--raw] [--max-age ms]` | Elements on screen. `--all` includes off-screen ones, `--full` adds identifiers (about 0.5 s more), `--raw` attaches every numbered attribute |
+| `phone find <selector>` | Elements matching a selector |
+| `phone tap <selector \| x,y> [--long ms] [--double]` | Tap the middle of an element, or a point |
+| `phone swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | Swipe. `--drag` slows to a stop before lifting, so nothing coasts |
+| `phone scroll <up\|down> [--until selector] [--max N]` | One step, or until an element shows |
+| `phone type <text> [--clear] [--submit]` | Paste text into the field that has the keyboard (any language, emoji). The clipboard is put back and the field's value checked |
+| `phone key <key>` | `return`, `esc`, `tab`, `cmd+a` … |
+| `phone button <home\|lock\|volume_up\|volume_down>` | Hardware buttons |
+| `phone launch <bundle id \| name> [--restart]` / `phone apps` | Launch an app, list apps |
+| `phone screenshot [-o file]` | PNG capture |
+| `phone batch <file \| ->` | A JSON array of steps in one call |
+| `phone script <file \| -> [--arg k=v]` | Run JavaScript as given (`-` reads stdin) |
+| `phone run <name> [--arg k=v]` / `phone scripts` | Run a saved script, list saved scripts |
+| `phone mcp [--tools a,b]` | MCP server on stdio |
+| `phone dnd <on\|off\|status>` | Turn Do Not Disturb on, put the earlier Focus back, or show the current state |
+| `phone stop` | Stop the resident process for this phone |
 
 ### Selectors
 
-- A plain string is an exact label: `iph tap "General"`
+- A plain string is an exact label: `phone tap "General"`
 - `label="exact"`, `label~="contains"`, `label/regex/`
 - `role=button` (application, button, switch, text_field, search_field, key, tab, header, text, image, link, adjustable, other)
-- `id=…` matches the accessibility identifier or the element `id` from `iph read`; `id~=` and `id/regex/` work too
+- `id=…` matches the accessibility identifier or the element `id` from `phone read`; `id~=` and `id/regex/` work too
 - `value="…"`, `value~=…`
 - `within="<selector>"` only inside that element, `index=N` the Nth match (from 0)
 - Several matches are an `ambiguous_selector` error with the candidates; nothing is picked for you
@@ -180,18 +182,18 @@ For `type`, `ok: true` / `outcome: "done"` means the command completed, and `sen
 | `warning` | `{code, message, hint}` when the effect needs inspection: `value_unchanged`, `value_unreadable`, `value_change_unknown`, `value_empty` (nonempty input but empty result), or `clear_not_observed`. Without `--submit`, these warnings preserve `ok: true` / `outcome: "done"`. |
 | `submit_sent` | `true` when Return was sent, `false` when not requested or withheld; `null` if sending Return failed and it may have gone out. |
 
-An unchanged value may mean paste was blocked, but can also come from masking, app behavior or replacing text with identical text using `--clear`. Check with `iph read` or a screenshot; **do not automatically retype**. If paste appears blocked, check Settings → Apps → the target app → **Paste from Other Apps → Allow**. The observation does not establish that permission was denied.
+An unchanged value may mean paste was blocked, but can also come from masking, app behavior or replacing text with identical text using `--clear`. Check with `phone read` or a screenshot; **do not automatically retype**. If paste appears blocked, check Settings → Apps → the target app → **Paste from Other Apps → Allow**. The observation does not establish that permission was denied.
 
-**`--submit` withholds Return whenever there is a warning**, returning `ok: false`, `outcome: "unknown"`, `error.code: "type_not_verified"`, `submit_sent: false` (exit code 2). The paste/clear keys have already gone out. This also stops scripts and batches, including scripts that catch the error. Inspect before deciding to submit separately with `iph key return`; re-running `type` could duplicate input. This intentionally also holds an identical replacement with `--clear --submit`. Clear-only (`iph type "" --clear`) may submit when the field is observed empty, even if it was empty already. CLI, MCP and script calls share these fields; `batch` keeps them in each type step, and `--human` shows observations and warnings.
+**`--submit` withholds Return whenever there is a warning**, returning `ok: false`, `outcome: "unknown"`, `error.code: "type_not_verified"`, `submit_sent: false` (exit code 2). The paste/clear keys have already gone out. This also stops scripts and batches, including scripts that catch the error. Inspect before deciding to submit separately with `phone key return`; re-running `type` could duplicate input. This intentionally also holds an identical replacement with `--clear --submit`. Clear-only (`phone type "" --clear`) may submit when the field is observed empty, even if it was empty already. CLI, MCP and script calls share these fields; `batch` keeps them in each type step, and `--human` shows observations and warnings.
 
 ## Configuration
 
 ```toml
-# ~/.config/iph/config.toml
+# ~/.config/phone/config.toml
 udid = "00008130-…"
 
 [dnd]
-# focus = "Work"         # a Focus for iph dnd on to switch to instead of Do Not Disturb, by the name the phone shows
+# focus = "Work"         # a Focus for phone dnd on to switch to instead of Do Not Disturb, by the name the phone shows
 # control = "Focus"      # label of the Focus control in Control Center, for a phone not in Korean or English
 
 [daemon]
@@ -205,21 +207,21 @@ timeout_secs = 300       # how long one script may run (840 at most)
 memory_mb = 64           # how much memory a script may hold
 ```
 
-Sending input needs the phone to be in "screen sharing" state (an indicator shows at the top of the phone). iph sets that up with the audio stream alone and does not take the screen video (`screen_video`). For an app that hides its content or warns while the screen is shared, set `input_idle_secs = 0`: the phone is then in that state only while input is being sent, at the price of 3 to 4 s more per input. Reading does not depend on screen sharing.
+Sending input needs the phone to be in "screen sharing" state (an indicator shows at the top of the phone). phone-cli sets that up with the audio stream alone and does not take the screen video (`screen_video`). For an app that hides its content or warns while the screen is shared, set `input_idle_secs = 0`: the phone is then in that state only while input is being sent, at the price of 3 to 4 s more per input. Reading does not depend on screen sharing.
 
-iph does not judge what it presses. Pay, send and order buttons are pressed like any other, and input goes to whatever app is in front. What to press is up to the caller.
+phone-cli does not judge what it presses. Pay, send and order buttons are pressed like any other, and input goes to whatever app is in front. What to press is up to the caller.
 
 ### Do Not Disturb
 
-- **On and off:** `iph dnd on` turns Do Not Disturb on, `iph dnd off` puts back the Focus that was on before. iph never switches it by itself.
-- **Put back to what:** at `on` the Focus that was on (or none) is written to `~/Library/Application Support/iph/<udid>.dnd.json`, and `off` restores it as it was. If the phone was already in Do Not Disturb, iph leaves it alone; if a person switched to another Focus meanwhile, that one stays. The record outlives the resident process.
-- **How:** no service on the phone offers this, so iph does what a person does: pull Control Center down, hold the Focus control, pick the mode in the list, press Home twice. Control Center is therefore visible for a moment, and one switch usually takes 11 to 15 s, or 19 to 36 s when the resident process has just started.
+- **On and off:** `phone dnd on` turns Do Not Disturb on, `phone dnd off` puts back the Focus that was on before. phone never switches it by itself.
+- **Put back to what:** at `on` the Focus that was on (or none) is written to `~/Library/Application Support/phone/<udid>.dnd.json`, and `off` restores it as it was. If the phone was already in Do Not Disturb, phone leaves it alone; if a person switched to another Focus meanwhile, that one stays. The record outlives the resident process.
+- **How:** no service on the phone offers this, so phone-cli does what a person does: pull Control Center down, hold the Focus control, pick the mode in the list, press Home twice. Control Center is therefore visible for a moment, and one switch usually takes 11 to 15 s, or 19 to 36 s when the resident process has just started.
 - **Needs:** the Focus control on Control Center's first page, and Control Center opening while an app is in front. For a phone in a language other than Korean or English, put the names the phone shows in `control` and `focus` under `[dnd]`.
 - **Not covered:** whatever comes through Do Not Disturb (alarms and timers, emergency alerts, people and apps allowed in the Do Not Disturb settings) and system pop-ups. Whether banners really stay away while Do Not Disturb is on was not tested separately (it relies on how iOS behaves).
 
 ## Scripts
 
-A sequence you run often is written in JavaScript and runs in one call. The commands (`read`, `tap`, `scroll` …) are functions; loops, conditions and variables are the language's own. The engine (QuickJS) is inside `iph`, so there is nothing else to install.
+A sequence you run often is written in JavaScript and runs in one call. The commands (`read`, `tap`, `scroll` …) are functions; loops, conditions and variables are the language's own. The engine (QuickJS) is inside `phone`, so there is nothing else to install.
 
 ```js
 // Read the iOS version from Settings
@@ -231,19 +233,19 @@ return { ios_version: readField({ selector: { label: "iOS 버전" }, take: "valu
 ```
 
 ```sh
-iph script flow.js --arg city=Seoul    # run a file
-iph script - <<'EOF'                   # from stdin
+phone script flow.js --arg city=Seoul    # run a file
+phone script - <<'EOF'                   # from stdin
 return { front: read({ app: true }).apps[0].name };
 EOF
-iph run settings-version               # a saved script, by name
-iph scripts                            # list saved scripts
+phone run settings-version               # a saved script, by name
+phone scripts                            # list saved scripts
 ```
 
 ```json
 {"ok": true, "outcome": "done", "elapsed_ms": 10712, "outputs": {"ios_version": "27.0.1"}, "logs": [], "calls": 5, "inputs_sent": 4, "script": "settings-version", "source": "builtin:settings-version"}
 ```
 
-- **Where they live:** `~/.config/iph/scripts/<name>.js` (personal, wins), then the repository's `scripts/` (examples, built into the binary). A file's first comment line is its description in `iph scripts`.
+- **Where they live:** `~/.config/phone/scripts/<name>.js` (personal, wins), then the repository's `scripts/` (examples, built into the binary). A file's first comment line is its description in `phone scripts`.
 - **Arguments and results:** `--arg k=v` arrives as `args.k` (text, so a number is `Number(args.n)`). The object the script returns, plus anything set with `output(k, v)`, becomes `outputs`; lines written with `log(…)` come back in `logs`.
 
 | Function | What it does |
@@ -269,11 +271,11 @@ iph scripts                            # list saved scripts
 - `readList` reads each screen once and works out by itself how far to scroll so that the last two rows of one screen land at the top of the next (that depends on the phone and the app, so it is computed from where rows were read). The two shared rows stitch the screens together, which shows whether a row was skipped. Before it calls the end of a list it moves the list up and down once to check.
 - **Walls:** a script cannot reach files, the network or other processes (no module loading, no timers). `Date`, `JSON`, `RegExp`, `Map` and the rest of the language are there. A script that runs past `[script] timeout_secs` (300 s by default) or holds more than `memory_mb` (64 MB) is stopped.
 
-Examples: [`settings-version`](scripts/settings-version.js), [`calculator-multiply`](scripts/calculator-multiply.js), [`clock-world-list`](scripts/clock-world-list.js), and [`settings-list`](scripts/settings-list.js) with a loop and a condition (all written for a Korean-language phone). Keep personal scripts (banking, delivery) out of the repository, in `~/.config/iph/scripts/`.
+Examples: [`settings-version`](scripts/settings-version.js), [`calculator-multiply`](scripts/calculator-multiply.js), [`clock-world-list`](scripts/clock-world-list.js), and [`settings-list`](scripts/settings-list.js) with a loop and a condition (all written for a Korean-language phone). Keep personal scripts (banking, delivery) out of the repository, in `~/.config/phone/scripts/`.
 
 ### batch
 
-`iph batch` runs a JSON array of steps in order and stops at the first failure. It is for short sequences that need no loop or condition.
+`phone batch` runs a JSON array of steps in order and stops at the first failure. It is for short sequences that need no loop or condition.
 
 | Step | What it does |
 |---|---|
@@ -291,19 +293,19 @@ A failing step returns `{failed_step, reason, screen_summary, inputs_sent}`; eac
 ## MCP
 
 ```sh
-claude mcp add iph -- iph mcp          # Claude Code
-codex mcp add iph -- iph mcp           # Codex
-iph mcp --tools read,find,script       # offer only some tools
+claude mcp add phone -- phone mcp          # Claude Code
+codex mcp add phone -- phone mcp           # Codex
+phone mcp --tools read,find,script       # offer only some tools
 ```
 
-To have an agent reach for `iph` on its own, link the skill (it works with `iph` in the shell alone, without the MCP registration).
+To have an agent reach for `phone` on its own, link the skill (it works with `phone` in the shell alone, without the MCP registration).
 
 ```sh
-ln -s "$PWD/skills/iph" ~/.claude/skills/iph                    # Claude Code
-ln -s "$PWD/skills/iph" ~/.codex/skills/iph                     # Codex
+ln -s "$PWD/skills/phone" ~/.claude/skills/phone                    # Claude Code
+ln -s "$PWD/skills/phone" ~/.codex/skills/phone                     # Codex
 ```
 
-Tools: `iph_connect`, `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. Arguments and results are the same as the CLI's. `iph_script` takes `code` (JavaScript) and `args`; `iph_run` takes `name` and `args`. Guidance for agents: [skills/iph/SKILL.md](skills/iph/SKILL.md).
+Tools: `phone_connect`, `phone_read`, `phone_find`, `phone_tap`, `phone_swipe`, `phone_scroll`, `phone_type`, `phone_key`, `phone_button`, `phone_launch`, `phone_apps`, `phone_screenshot`, `phone_batch`, `phone_script`, `phone_run`, `phone_scripts`, `phone_doctor`, `phone_dnd`. Arguments and results are the same as the CLI's. `phone_script` takes `code` (JavaScript) and `args`; `phone_run` takes `name` and `args`. Guidance for agents: [skills/phone/SKILL.md](skills/phone/SKILL.md).
 
 ## Speed
 
@@ -311,36 +313,36 @@ iPhone 15 Pro Max, iOS 27.0.1, Wi-Fi, with the resident process connected (2026-
 
 | Action | Time |
 |---|---|
-| `iph read` (Settings home, 10 runs) | median 1.35 s, max 2.10 s |
-| `iph read --full` (10 runs) | median 1.45 s, max 1.79 s |
-| `iph tap` including the check (20 runs, 0 misses) | median 1.75 s, max 4.30 s |
-| `iph scroll`, one step with check | 2.1 to 2.6 s |
-| `iph type` (Notes, with check and clipboard restore) | 4 to 7 s |
+| `phone read` (Settings home, 10 runs) | median 1.35 s, max 2.10 s |
+| `phone read --full` (10 runs) | median 1.45 s, max 1.79 s |
+| `phone tap` including the check (20 runs, 0 misses) | median 1.75 s, max 4.30 s |
+| `phone scroll`, one step with check | 2.1 to 2.6 s |
+| `phone type` (Notes, with check and clipboard restore) | 4 to 7 s |
 | Script `settings-version` (5 calls, over USB) | 9.9 to 13.3 s (8 runs) |
-| First `iph read` without a resident process (tunnel and subscription included) | about 2 to 3 s |
+| First `phone read` without a resident process (tunnel and subscription included) | about 2 to 3 s |
 | Turning Do Not Disturb on, or putting the earlier Focus back | median 12.5 s with the connection up (11 runs, 10.9 to 14.2 s); 19 to 36 s right after the resident process starts |
 
 A reading takes more than a second because of the phone: after a request it waits about 1.1 s in silence before it sends the screen. In apps whose screen often changes on its own, readings are taken twice and compared so that an out-of-date screen is not used; that adds 1 to 2 s per step. Details: [docs/how-it-works.md](docs/how-it-works.md) (Korean).
 
 ## Known limits
 
-- Verified on one device. Other iOS versions may number the accessibility attributes differently (check with `iph read --raw`).
+- Verified on one device. Other iOS versions may number the accessibility attributes differently (check with `phone read --raw`).
 - Apps whose screen keeps moving (animations, video) take longer to read.
-- Notification banners and system pop-ups are not in the app's tree. `iph dnd on` keeps most banners away, but not what comes through Do Not Disturb.
-- The screen-reading service can stop answering. iph attempts a restart at most every two minutes, except when the last screen was a system panel or a previous restart did not help. If Control Center cannot be read while recording, close it with `iph button home` or bring an app up with `iph launch`, then read again. See [recovery behavior](docs/how-it-works.md#6-연결과-화면-읽기-복구) (Korean).
+- Notification banners and system pop-ups are not in the app's tree. `phone dnd on` keeps most banners away, but not what comes through Do Not Disturb.
+- The screen-reading service can stop answering. phone attempts a restart at most every two minutes, except when the last screen was a system panel or a previous restart did not help. If Control Center cannot be read while recording, close it with `phone button home` or bring an app up with `phone launch`, then read again. See [recovery behavior](docs/how-it-works.md#6-연결과-화면-읽기-복구) (Korean).
 - Portrait only.
-- `iph apps` shows the names the phone reports (usually English). Launch by bundle id to be sure.
-- `iph type` puts back the clipboard's text (or one image). **Content copied in an app (text from Notes, which comes with formatting) is not put back.** Reading it from the computer stalls the phone's clipboard for about a minute, so it is left unread and the clipboard is emptied after typing. The result says `clipboard_restored: false` with a `clipboard_note`.
+- `phone apps` shows the names the phone reports (usually English). Launch by bundle id to be sure.
+- `phone type` puts back the clipboard's text (or one image). **Content copied in an app (text from Notes, which comes with formatting) is not put back.** Reading it from the computer stalls the phone's clipboard for about a minute, so it is left unread and the clipboard is emptied after typing. The result says `clipboard_restored: false` with a `clipboard_note`.
 - Nothing works on a locked phone. Face ID and passcode prompts are never answered for you.
 - Mounting the developer disk image automatically is written but untested (the test phone already had it mounted).
 
 ## How it is put together
 
-One `iph` call is one request over a Unix socket (`~/Library/Application Support/iph/<udid>.sock`) to a resident process (`iph daemon`, started by the first call). It keeps the tunnel, the accessibility subscription and the touch-input session open per phone and handles requests one at a time. It exits after 30 minutes without requests.
+One `phone` call is one request over a Unix socket (`~/Library/Application Support/phone/<udid>.sock`) to a resident process (`phone daemon`, started by the first call). It keeps the tunnel, the accessibility subscription and the touch-input session open per phone and handles requests one at a time. It exits after 30 minutes without requests.
 
 ```
-iph (CLI) ─┐
-iph mcp  ──┼─ unix socket ─ iph daemon ─ lockdown → CoreDeviceProxy → userspace TCP tunnel → RSD
+phone (CLI) ─┐
+phone mcp  ──┼─ unix socket ─ phone daemon ─ lockdown → CoreDeviceProxy → userspace TCP tunnel → RSD
            ┘                              ├ axAuditDaemon.remoteAXService   (screen elements)
                                           ├ displayservice + universalhid   (touch, keyboard)
                                           ├ pasteboardservice               (clipboard)
@@ -353,25 +355,25 @@ iph mcp  ──┼─ unix socket ─ iph daemon ─ lockdown → CoreDeviceProx
 Create an issue attachment with one command, even when no phone is detected:
 
 ```sh
-iph diagnose
-iph diagnose -- read --full        # run the failing iph command once and capture its output
-iph diagnose --wifi -- read        # start with USB connected; unplug when prompted
+phone diagnose
+phone diagnose -- read --full        # run the failing phone command once and capture its output
+phone diagnose --wifi -- read        # start with USB connected; unplug when prompted
 ```
 
-Attach the generated `iph-diagnostics-*.txt` to a [GitHub issue](https://github.com/HyunSeob/iphone-cli/issues/new/choose), along with the reproduction steps and expected/actual behavior. The file contains readable JSON: versions and network state, raw and parsed usbmuxd lists, phone facts and wireless settings, pairing/connection/tunnel errors with timings, Bonjour advertisements and endpoint TCP probes, recent connection events and daemon logs, and related macOS system logs. UDIDs, addresses, command arguments and captured output are retained for debugging. Pairing records and private keys are not collected.
+Attach the generated `phone-diagnostics-*.txt` to a [GitHub issue](https://github.com/HyeokE/phone-cli/issues/new/choose), along with the reproduction steps and expected/actual behavior. The file contains readable JSON: versions and network state, raw and parsed usbmuxd lists, phone facts and wireless settings, pairing/connection/tunnel errors with timings, Bonjour advertisements and endpoint TCP probes, recent connection events and daemon logs, and related macOS system logs. UDIDs, addresses, command arguments and captured output are retained for debugging. Pairing records and private keys are not collected.
 
 `--wifi` records USB facts first, then observes discovery for 30 seconds while you unplug the cable. `--duration 60` changes that observation window. The phone selected during the USB baseline remains selected after it disappears; use `--udid` when several phones are attached. Bonjour services may belong to other devices, so the report preserves the advertisements without assuming their identity. On Windows, the Bonjour checks use `dns-sd` if it is installed; missing tools and failed checks are recorded and do not prevent the attachment.
 
 Use `-o report.txt` to choose the output path (existing files are preserved). `--command-timeout 180` changes the reproduction timeout. Collection itself does not change phone settings, install a developer image, or operate the screen. A command supplied after `--` performs its normal actions; the collector runs it once and never repeats it. For ordinary command capture, active device probes run afterwards so they do not initialize a session before the failure. `setup`, `mcp`, `daemon` and nested `diagnose` are not accepted as reproduction commands. Ctrl+C saves the collected partial report. Exit code 0 means the report was saved; the reproduced command's exit code and output are inside it.
 
-Connection events are recorded automatically under `~/Library/Application Support/iph/events/` on macOS or `%LOCALAPPDATA%\iph\events\` on Windows, including failures before a phone is selected. Files rotate at 512 KiB, with 32 recent files retained; the report includes tails of the 8 most recently updated files and the selected phone's daemon log. Each captured output is limited to its last 256 KiB, with truncation marked. `USBMUXD_SOCKET_ADDRESS` can select a nondefault usbmuxd socket for both normal commands and diagnosis.
+Connection events are recorded automatically under `~/Library/Application Support/phone/events/` on macOS or `%LOCALAPPDATA%\phone\events\` on Windows, including failures before a phone is selected. Files rotate at 512 KiB, with 32 recent files retained; the report includes tails of the 8 most recently updated files and the selected phone's daemon log. Each captured output is limited to its last 256 KiB, with truncation marked. `USBMUXD_SOCKET_ADDRESS` can select a nondefault usbmuxd socket for both normal commands and diagnosis.
 
 ## Development
 
 ```sh
 cargo test          # runs without a phone: parser (real Calculator dumps), selectors, scripts
-IPH_TRACE=1 iph …   # logs request and dump times to ~/Library/Application Support/iph/<udid>.log
-IPH_PCAP=<dir> iph … # writes the tunnel's packets out for Wireshark; they hold screen contents, delete them after
+PHONE_TRACE=1 phone …   # logs request and dump times to ~/Library/Application Support/phone/<udid>.log
+PHONE_PCAP=<dir> phone … # writes the tunnel's packets out for Wireshark; they hold screen contents, delete them after
 ```
 
 **Releasing:** raise `version` in `Cargo.toml` and push to main. The [release workflow](.github/workflows/release.yml) then tags `vX.Y.Z`, publishes the macOS and Windows binaries as a GitHub release (what `install.sh` downloads) and publishes the crate to crates.io through Trusted Publishing, so no token is kept anywhere. Pushes that leave the version alone release nothing.

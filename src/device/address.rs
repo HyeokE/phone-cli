@@ -86,7 +86,7 @@ pub(crate) fn cached(udid: &str) -> Option<WifiAddress> {
     if !valid_udid(udid) {
         return None;
     }
-    std::fs::read_to_string(paths::state_dir().join(format!("{udid}.addr")))
+    std::fs::read_to_string(paths::state_file_to_read(&format!("{udid}.addr")))
         .ok()?
         .trim()
         .parse()

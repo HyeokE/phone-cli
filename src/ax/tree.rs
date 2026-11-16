@@ -1,4 +1,4 @@
-//! Turn a raw dump into the element list `iph read` prints.
+//! Turn a raw dump into the element list `phone read` prints.
 
 use std::collections::HashSet;
 

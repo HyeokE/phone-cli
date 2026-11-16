@@ -36,7 +36,7 @@ const PROBE_TIMEOUT: Duration = Duration::from_secs(6);
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct Args {
-    /// Save the attachment here (default: iph-diagnostics-<time>-<pid>.txt).
+    /// Save the attachment here (default: phone-diagnostics-<time>-<pid>.txt).
     #[arg(short, long)]
     pub output: Option<PathBuf>,
     /// Start with USB connected; observe discovery while you unplug it.
@@ -45,11 +45,11 @@ pub struct Args {
     /// Seconds to observe after the USB baseline with --wifi.
     #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=300))]
     pub duration: u64,
-    /// Maximum run time of the iph command supplied after --.
+    /// Maximum run time of the phone command supplied after --.
     #[arg(long, default_value_t = 120, value_parser = clap::value_parser!(u64).range(1..=900))]
     pub command_timeout: u64,
-    /// Optional iph command to run once and capture, e.g. -- read --full.
-    #[arg(last = true, value_name = "IPH_COMMAND")]
+    /// Optional phone command to run once and capture, e.g. -- read --full.
+    #[arg(last = true, value_name = "PHONE_COMMAND")]
     pub command: Vec<String>,
 }
 
@@ -72,7 +72,7 @@ impl Report {
                 "schema_version": 1, "status": "collecting", "started_at": crate::clock::now_utc(),
                 "started_unix_ms": events::now_ms(), "wifi_observation": args.wifi,
                 "observation_seconds": if args.wifi { args.duration } else { 5 },
-                "environment": { "iph_version": env!("CARGO_PKG_VERSION"), "build": crate::daemon::build_stamp(),
+                "environment": { "phone_version": env!("CARGO_PKG_VERSION"), "build": crate::daemon::build_stamp(),
                     "os": std::env::consts::OS, "arch": std::env::consts::ARCH },
                 "snapshots": [], "discovery_timeline": [], "findings": [],
             }),
@@ -100,7 +100,7 @@ impl Report {
 pub async fn run(args: Args, flag: Option<String>) -> Res {
     let path = args.output.clone().unwrap_or_else(|| {
         PathBuf::from(format!(
-            "iph-diagnostics-{}-{}.txt",
+            "phone-diagnostics-{}-{}.txt",
             crate::clock::now_utc().replace([':', '-'], ""),
             std::process::id(),
         ))
@@ -148,7 +148,7 @@ async fn collect(report: &mut Report, args: &Args, flag: Option<String>) -> Resu
     let config = Config::load();
     let mut chosen = flag
         .filter(|s| !s.is_empty())
-        .or_else(|| std::env::var("IPH_UDID").ok().filter(|s| !s.is_empty()))
+        .or_else(|| crate::paths::env_var("PHONE_UDID").ok().filter(|s| !s.is_empty()))
         .or_else(|| config.as_ref().ok().and_then(|c| c.udid.clone()));
     report.data["config"] = match &config {
         Ok(c) => json!({ "path": paths::config_file(), "values": c }),
@@ -156,22 +156,28 @@ async fn collect(report: &mut Report, args: &Args, flag: Option<String>) -> Resu
     };
     let mut env = serde_json::Map::new();
     for key in [
-        "IPH_UDID",
-        "IPH_PREFER",
-        "IPH_LOG",
-        "IPH_TRACE",
-        "IPH_STATE_DIR",
-        "IPH_CONFIG_DIR",
-        "IPH_INPUT_WARMUP_MS",
-        "IPH_INPUT_PRIME",
-        "IPH_REUSE_MS",
-        "IPH_REOPEN_GAP_MS",
-        "IPH_PCAP",
-        "IPH_DUMP_DIR",
+        "PHONE_UDID",
+        "PHONE_PREFER",
+        "PHONE_LOG",
+        "PHONE_TRACE",
+        "PHONE_STATE_DIR",
+        "PHONE_CONFIG_DIR",
+        "PHONE_INPUT_WARMUP_MS",
+        "PHONE_INPUT_PRIME",
+        "PHONE_REUSE_MS",
+        "PHONE_REOPEN_GAP_MS",
+        "PHONE_PCAP",
+        "PHONE_DUMP_DIR",
         "USBMUXD_SOCKET_ADDRESS",
     ] {
         if let Ok(value) = std::env::var(key) {
             env.insert(key.into(), json!(value));
+        }
+        // The pre-rename names, still read when the PHONE_* one is unset.
+        if let Some(old) = key.strip_prefix("PHONE_").map(|rest| format!("IPH_{rest}"))
+            && let Ok(value) = std::env::var(&old)
+        {
+            env.insert(old, json!(value));
         }
     }
     report.data["environment"]["variables"] = json!(env);

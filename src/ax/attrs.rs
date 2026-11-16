@@ -3,7 +3,7 @@
 //! Found by experiment on iOS 27.0.1 with Settings, Calculator and Notes
 //! (2026-11-10): read a screen, compare the numbers with what is visibly
 //! there, change one thing, read again. Numbers not listed here are passed
-//! through untouched in `iph read --raw`.
+//! through untouched in `phone read --raw`.
 //!
 //! Seen but not used: 1 activation point, 13 custom actions, 48 and 43 other
 //! frames, 61 a second role-like number, 73 language, 78 trait descriptions

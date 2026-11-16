@@ -59,7 +59,7 @@ pub struct Selector {
     pub value: Option<TextMatch>,
     pub role: Option<String>,
     /// accessibilityIdentifier, or (exact form only) the `id` handle from
-    /// `iph read`.
+    /// `phone read`.
     pub id: Option<TextMatch>,
     pub within: Option<Box<Selector>>,
     pub index: Option<usize>,

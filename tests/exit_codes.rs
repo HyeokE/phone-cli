@@ -1,4 +1,4 @@
-//! The exit code of `iph batch` and `iph script` follows the outcome, as the
+//! The exit code of `phone batch` and `phone script` follows the outcome, as the
 //! README's table says: a caller that only looks at the exit code must not
 //! take an unsent run for a success. No phone is involved: the runs are
 //! refused before anything goes to one (a step or script that cannot run), on
@@ -21,7 +21,7 @@ impl Sandbox {
     fn new() -> Self {
         // Short: the daemon's socket lives here, and socket paths are limited
         // to about 100 bytes (the usual temporary folder on a Mac is too deep).
-        let dir = PathBuf::from(format!("/tmp/iph-exit-{}", &uuid::Uuid::new_v4().simple().to_string()[..8]));
+        let dir = PathBuf::from(format!("/tmp/phone-exit-{}", &uuid::Uuid::new_v4().simple().to_string()[..8]));
         std::fs::create_dir_all(dir.join("config")).unwrap();
         std::fs::write(
             dir.join("config/config.toml"),
@@ -37,13 +37,14 @@ impl Sandbox {
         p
     }
 
-    /// Run `iph <args>`: the exit code and the JSON it printed.
-    fn iph(&self, args: &[&str]) -> (i32, Value) {
-        let out = Command::new(env!("CARGO_BIN_EXE_iph"))
+    /// Run `phone <args>`: the exit code and the JSON it printed.
+    fn phone(&self, args: &[&str]) -> (i32, Value) {
+        let out = Command::new(env!("CARGO_BIN_EXE_phone"))
             .args(args)
-            .env("IPH_STATE_DIR", self.dir.join("state"))
-            .env("IPH_CONFIG_DIR", self.dir.join("config"))
-            .env("IPH_UDID", NO_SUCH_PHONE)
+            .env("PHONE_STATE_DIR", self.dir.join("state"))
+            .env("PHONE_CONFIG_DIR", self.dir.join("config"))
+            .env("PHONE_UDID", NO_SUCH_PHONE)
+            .env_remove("PHONE_TRACE")
             .env_remove("IPH_TRACE")
             .output()
             .unwrap();
@@ -55,7 +56,7 @@ impl Sandbox {
 
 impl Drop for Sandbox {
     fn drop(&mut self) {
-        let _ = self.iph(&["stop"]);
+        let _ = self.phone(&["stop"]);
         let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
@@ -69,16 +70,16 @@ fn batch_and_script_exit_codes_follow_the_outcome() {
     let s = Sandbox::new();
 
     let unsent = s.file("unsent.json", r#"[{"fly": "away"}]"#);
-    let (code, v) = s.iph(&["batch", path(&unsent)]);
+    let (code, v) = s.phone(&["batch", path(&unsent)]);
     assert_eq!((code, v["outcome"].as_str()), (1, Some("not_sent")), "{v}");
 
     let unsent = s.file("unsent.js", r#"throw new Error("stop here")"#);
-    let (code, v) = s.iph(&["script", path(&unsent)]);
+    let (code, v) = s.phone(&["script", path(&unsent)]);
     assert_eq!((code, v["outcome"].as_str()), (1, Some("not_sent")), "{v}");
 
     // A script that sends nothing and returns: done, 0.
     let fine = s.file("fine.js", "return { n: 1 + 1 }");
-    let (code, v) = s.iph(&["script", path(&fine)]);
+    let (code, v) = s.phone(&["script", path(&fine)]);
     assert_eq!((code, v["ok"].as_bool()), (0, Some(true)), "{v}");
     assert_eq!(v["outputs"]["n"], 2);
 }

@@ -1,4 +1,4 @@
-//! `iph devices`: connected iPhones and whether each is ready.
+//! `phone devices`: connected iPhones and whether each is ready.
 
 use std::time::Duration;
 
@@ -40,7 +40,7 @@ async fn describe(route: &conn::Route) -> (Option<String>, Option<String>) {
 
 pub async fn cmd_devices(only: Option<String>) -> Res {
     let chosen = only
-        .or_else(|| std::env::var("IPH_UDID").ok().filter(|u| !u.is_empty()))
+        .or_else(|| crate::paths::env_var("PHONE_UDID").ok().filter(|u| !u.is_empty()))
         .or_else(|| Config::load().ok().and_then(|c| c.udid));
     let (found, discovery_error) = match discovery::read().await {
         Ok(found) => (found, None),

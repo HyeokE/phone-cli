@@ -10,7 +10,7 @@ pub enum Lang {
 }
 
 fn detect() -> Lang {
-    if let Ok(v) = std::env::var("IPH_LANG") {
+    if let Ok(v) = crate::paths::env_var("PHONE_LANG") {
         return if v.to_lowercase().starts_with("ko") { Lang::Ko } else { Lang::En };
     }
     // The system language list is the truth on macOS; the shell's LANG often

@@ -139,7 +139,7 @@ pub struct Route {
 
 /// Answers the phone's heartbeat for as long as it lives. Over Wi-Fi the phone
 /// closes the connections to its services (CoreDeviceProxy, AMFI, the image
-/// mounter) unless some client answers its Marco. iph owns this for every
+/// mounter) unless some client answers its Marco. phone-cli owns this for every
 /// Wi-Fi address, regardless of where the address was discovered.
 pub struct Heartbeat(tokio::task::JoinHandle<()>);
 
@@ -310,7 +310,7 @@ async fn with_discovery<T, F: Future<Output = Result<T>>>(
             (Discovery::default(), Some(message))
         }
     };
-    let wifi_first = std::env::var("IPH_PREFER").is_ok_and(|v| v.eq_ignore_ascii_case("wifi"));
+    let wifi_first = crate::paths::env_var("PHONE_PREFER").is_ok_and(|v| v.eq_ignore_ascii_case("wifi"));
     let plan = candidates(udid, &found, recall_ip(udid), wifi_first);
     if plan.is_empty() {
         if let Some(e) = discovery_error {
@@ -446,9 +446,9 @@ pub async fn open_tunnel_with_provider(
     let mut adapter = Adapter::new(Box::new(proxy.into_tunnel().into_inner()), ours, theirs);
     // Room for the IPv6 and TCP headers.
     adapter.set_mss((info.mtu as usize).saturating_sub(60));
-    // `IPH_PCAP=<folder>`: every packet of this tunnel, for Wireshark. Holds
+    // `PHONE_PCAP=<folder>`: every packet of this tunnel, for Wireshark. Holds
     // whatever the phone sends, so only for a short look, then delete it.
-    if let Ok(dir) = std::env::var("IPH_PCAP") {
+    if let Ok(dir) = crate::paths::env_var("PHONE_PCAP") {
         let path = std::path::Path::new(&dir).join(format!("tunnel-{}.pcap", t0_stamp()));
         if let Err(e) = adapter.pcap(&path).await {
             tracing::warn!("pcap {}: {e}", path.display());

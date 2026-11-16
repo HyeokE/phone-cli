@@ -1,4 +1,4 @@
-//! `iph doctor`: check, in order, everything the phone needs for iph to work,
+//! `phone doctor`: check, in order, everything the phone needs for phone-cli to work,
 //! and say in one line what the user must do for each thing that is missing.
 //!
 //! Which checks are truly required was established on an iPhone 15 Pro Max
@@ -251,8 +251,8 @@ fn front_checks(
                     .status("fail")
                     .detail(why.clone())
                     .action(
-                        "화면 읽기 응답이 없습니다(폰의 화면 읽기 서비스 axauditd). iph가 그 서비스를 다시 띄웠거나 2분 안에 다시 띄웁니다. 잠시 뒤 `iph doctor`를 다시 실행하고, 계속되면 폰을 재시동하세요.",
-                        "No answer from the phone's screen reading (its axauditd service). iph has restarted it or will within 2 minutes. Run `iph doctor` again shortly; if it keeps failing, restart the phone.",
+                        "화면 읽기 응답이 없습니다(폰의 화면 읽기 서비스 axauditd). phone-cli가 그 서비스를 다시 띄웠거나 2분 안에 다시 띄웁니다. 잠시 뒤 `phone doctor`를 다시 실행하고, 계속되면 폰을 재시동하세요.",
+                        "No answer from the phone's screen reading (its axauditd service). phone-cli has restarted it or will within 2 minutes. Run `phone doctor` again shortly; if it keeps failing, restart the phone.",
                     ),
             );
         }
@@ -309,8 +309,8 @@ fn wifi_check(
             c = c.status("warn");
             let keys = disabled.join(" / ");
             return c.detail(detail.join("; ")).action(
-                &format!("기기의 무선 디버깅/Wi-Fi 연결 플래그({keys})가 꺼져 있습니다. USB 연결 상태에서 `iph setup --fix-wifi` 또는 `iph doctor --fix-wifi`를 실행하세요. 직접 설정하려면 Finder의 'Wi-Fi에 있을 때 이 iPhone 보기'(윈도: Apple 기기 앱)와 Xcode의 'Connect via network'를 확인하세요. 자동 설정 실패 원인은 detail에 표시됩니다."),
-                &format!("The device's wireless debugging/Wi-Fi connection flags ({keys}) are off. With USB connected, run `iph setup --fix-wifi` or `iph doctor --fix-wifi`. For manual setup, check Finder's \"Show this iPhone when on Wi-Fi\" (Apple Devices on Windows) and Xcode's \"Connect via network\". Any automatic setup failure is in detail."),
+                &format!("기기의 무선 디버깅/Wi-Fi 연결 플래그({keys})가 꺼져 있습니다. USB 연결 상태에서 `phone setup --fix-wifi` 또는 `phone doctor --fix-wifi`를 실행하세요. 직접 설정하려면 Finder의 'Wi-Fi에 있을 때 이 iPhone 보기'(윈도: Apple 기기 앱)와 Xcode의 'Connect via network'를 확인하세요. 자동 설정 실패 원인은 detail에 표시됩니다."),
+                &format!("The device's wireless debugging/Wi-Fi connection flags ({keys}) are off. With USB connected, run `phone setup --fix-wifi` or `phone doctor --fix-wifi`. For manual setup, check Finder's \"Show this iPhone when on Wi-Fi\" (Apple Devices on Windows) and Xcode's \"Connect via network\". Any automatic setup failure is in detail."),
             );
         }
     }
@@ -324,18 +324,18 @@ fn wifi_check(
     c = c.status("warn").detail(detail.join("; "));
     if network.is_err() {
         return c.action(
-            "usbmuxd에서 무선 연결 목록을 확인하지 못했습니다. 컴퓨터의 Apple 기기 연결 서비스와 USB 연결을 확인하고 `iph doctor`를 다시 실행하세요.",
-            "Could not query wireless connections from usbmuxd. Check the computer's Apple device service and USB connection, then run `iph doctor` again.",
+            "usbmuxd에서 무선 연결 목록을 확인하지 못했습니다. 컴퓨터의 Apple 기기 연결 서비스와 USB 연결을 확인하고 `phone doctor`를 다시 실행하세요.",
+            "Could not query wireless connections from usbmuxd. Check the computer's Apple device service and USB connection, then run `phone doctor` again.",
         );
     }
     match state {
         Some(state) if state.enabled() => c.action(
-            "EnableWifiConnections와 EnableWifiDebugging은 모두 켜져 있지만 usbmuxd에 Network 연결이 없습니다. 폰과 컴퓨터가 같은 LAN에 있는지, 공유기의 AP/클라이언트 격리가 꺼져 있는지, mDNS/Bonjour(_apple-mobdev2._tcp.local.)가 차단되지 않는지 확인하세요. 폰 IP를 알면 `iph --udid <UDID> connect --ip <폰 IP>`로 직접 등록할 수 있습니다. 설정 직후라면 잠시 뒤 `iph doctor`를 다시 실행하세요.",
-            "EnableWifiConnections and EnableWifiDebugging are both on, but usbmuxd has no Network connection. Check the same LAN, AP/client isolation, and whether mDNS/Bonjour (_apple-mobdev2._tcp.local.) is blocked. If the phone IP is known, register it with `iph --udid <UDID> connect --ip <phone IP>`. If just enabled, run `iph doctor` again shortly.",
+            "EnableWifiConnections와 EnableWifiDebugging은 모두 켜져 있지만 usbmuxd에 Network 연결이 없습니다. 폰과 컴퓨터가 같은 LAN에 있는지, 공유기의 AP/클라이언트 격리가 꺼져 있는지, mDNS/Bonjour(_apple-mobdev2._tcp.local.)가 차단되지 않는지 확인하세요. 폰 IP를 알면 `phone --udid <UDID> connect --ip <폰 IP>`로 직접 등록할 수 있습니다. 설정 직후라면 잠시 뒤 `phone doctor`를 다시 실행하세요.",
+            "EnableWifiConnections and EnableWifiDebugging are both on, but usbmuxd has no Network connection. Check the same LAN, AP/client isolation, and whether mDNS/Bonjour (_apple-mobdev2._tcp.local.) is blocked. If the phone IP is known, register it with `phone --udid <UDID> connect --ip <phone IP>`. If just enabled, run `phone doctor` again shortly.",
         ),
         _ => c.action(
-            "기기의 무선 플래그를 확인하지 못했습니다(원인은 detail 참고). USB로 연결하고 잠금을 풀어 '이 컴퓨터를 신뢰'를 확인한 뒤 `iph doctor`를 다시 실행하세요. 무선 설정은 Finder/Apple 기기 앱과 Xcode의 'Connect via network'에서도 확인할 수 있습니다.",
-            "Could not confirm the device's wireless flags (see detail). Connect by USB, unlock and trust this computer, then run `iph doctor` again. Wireless settings can also be checked in Finder/Apple Devices and Xcode's \"Connect via network\".",
+            "기기의 무선 플래그를 확인하지 못했습니다(원인은 detail 참고). USB로 연결하고 잠금을 풀어 '이 컴퓨터를 신뢰'를 확인한 뒤 `phone doctor`를 다시 실행하세요. 무선 설정은 Finder/Apple 기기 앱과 Xcode의 'Connect via network'에서도 확인할 수 있습니다.",
+            "Could not confirm the device's wireless flags (see detail). Connect by USB, unlock and trust this computer, then run `phone doctor` again. Wireless settings can also be checked in Finder/Apple Devices and Xcode's \"Connect via network\".",
         ),
     }
 }
@@ -395,8 +395,8 @@ pub async fn run(s: &mut Session, args: DoctorArgs) -> Res {
             .status("fail")
             .detail(format!("{e:#}"))
             .action(
-                "폰을 USB로 연결하거나 컴퓨터와 같은 LAN에 두고 화면을 켜 주세요. USB로 신뢰한 폰이 자동 검색되지 않으면 `iph --udid <UDID> connect --ip <폰 IP>`로 직접 주소를 등록할 수 있습니다.",
-                "Plug the phone in, or put it on the same LAN and wake its screen. If a USB-paired phone is not discovered, register its address with `iph --udid <UDID> connect --ip <phone IP>`.",
+                "폰을 USB로 연결하거나 컴퓨터와 같은 LAN에 두고 화면을 켜 주세요. USB로 신뢰한 폰이 자동 검색되지 않으면 `phone --udid <UDID> connect --ip <폰 IP>`로 직접 주소를 등록할 수 있습니다.",
+                "Plug the phone in, or put it on the same LAN and wake its screen. If a USB-paired phone is not discovered, register its address with `phone --udid <UDID> connect --ip <phone IP>`.",
             ),
     });
 
@@ -493,8 +493,8 @@ pub async fn run(s: &mut Session, args: DoctorArgs) -> Res {
                     detail.push_str(&note);
                 }
                 checks.push(Check::new("developer_disk_image", true).status("fail").detail(detail).action(
-                    "개발자 디스크 이미지를 연결하지 못했습니다. 인터넷 연결(애플 서명 서버, GitHub)을 확인하고 다시 `iph doctor`를 실행하세요. 맥이라면 Xcode의 창 → 기기 및 시뮬레이터에서 이 폰을 한 번 골라도 됩니다.",
-                    "Could not install the developer disk image. Check the internet connection (Apple's signing server, GitHub) and run `iph doctor` again. On a Mac, selecting this phone once in Xcode → Window → Devices and Simulators also works.",
+                    "개발자 디스크 이미지를 연결하지 못했습니다. 인터넷 연결(애플 서명 서버, GitHub)을 확인하고 다시 `phone doctor`를 실행하세요. 맥이라면 Xcode의 창 → 기기 및 시뮬레이터에서 이 폰을 한 번 골라도 됩니다.",
+                    "Could not install the developer disk image. Check the internet connection (Apple's signing server, GitHub) and run `phone doctor` again. On a Mac, selecting this phone once in Xcode → Window → Devices and Simulators also works.",
                 ));
             }
             Err(message) => checks.push(
@@ -632,16 +632,16 @@ pub async fn run(s: &mut Session, args: DoctorArgs) -> Res {
         "For long sessions set Settings → Display & Brightness → Auto-Lock → Never. Reading and input stop when the phone locks.",
     ));
 
-    // 10. Do Not Disturb that `iph dnd on` left on. The phone's Focus is not
+    // 10. Do Not Disturb that `phone dnd on` left on. The phone's Focus is not
     // touched here.
     if let Some(left) = &s.dnd.record {
         checks.push(
             Check::new("do_not_disturb", false)
                 .status("info")
-                .detail(format!("on since {}, set by iph", left.at))
+                .detail(format!("on since {}, set by phone-cli", left.at))
                 .action(
-                    "`iph dnd on`으로 켠 방해금지 모드가 켜져 있습니다. `iph dnd off`로 원래대로 되돌릴 수 있습니다.",
-                    "Do Not Disturb from `iph dnd on` is on. `iph dnd off` puts the earlier Focus back.",
+                    "`phone dnd on`으로 켠 방해금지 모드가 켜져 있습니다. `phone dnd off`로 원래대로 되돌릴 수 있습니다.",
+                    "Do Not Disturb from `phone dnd on` is on. `phone dnd off` puts the earlier Focus back.",
                 ),
         );
     }
@@ -692,7 +692,7 @@ mod tests {
             for (i, key) in ["EnableWifiConnections", "EnableWifiDebugging"].iter().enumerate() {
                 if !values[i] { assert!(action.contains(key), "{action}"); }
             }
-            assert!(action.contains("iph setup --fix-wifi") && action.contains("iph doctor --fix-wifi"));
+            assert!(action.contains("phone setup --fix-wifi") && action.contains("phone doctor --fix-wifi"));
             assert!(action.contains("Finder") && action.contains("Connect via network"));
             assert!(!action.contains("AP/") && !action.contains("mDNS"), "{action}");
         }

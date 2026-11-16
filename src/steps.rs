@@ -1,4 +1,4 @@
-//! Steps: the pieces `iph batch` runs from a JSON list, and that scripts call
+//! Steps: the pieces `phone batch` runs from a JSON list, and that scripts call
 //! as `waitFor`, `readField` and `readList`.
 //!
 //! A step is a one-key map. Kinds: `launch`, `wait_for`, `tap`, `type`,
@@ -104,10 +104,10 @@ fn civil_from_days(z: i64) -> (i64, i64, i64) {
     (yoe + era * 400 + i64::from(m <= 2), m, d)
 }
 
-/// Today in the Mac's time zone as days since 1970-01-01. `IPH_TODAY`
+/// Today in the Mac's time zone as days since 1970-01-01. `PHONE_TODAY`
 /// (YYYY-MM-DD) overrides it, to try a run as if it were another day.
 fn today_days() -> i64 {
-    if let Ok(text) = std::env::var("IPH_TODAY") {
+    if let Ok(text) = crate::paths::env_var("PHONE_TODAY") {
         let parts: Vec<i64> = text.split('-').filter_map(|p| p.parse().ok()).collect();
         if let [y, m, d] = parts[..] {
             return days_from_civil(y, m, d);

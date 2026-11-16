@@ -53,9 +53,9 @@ pub enum Fresh {
 /// another one closely (scripts, batches).
 pub const REUSE: Duration = Duration::from_millis(1500);
 
-/// `REUSE`, or `IPH_REUSE_MS` when set (for experiments).
+/// `REUSE`, or `PHONE_REUSE_MS` when set (for experiments).
 pub fn reuse() -> Duration {
-    std::env::var("IPH_REUSE_MS")
+    crate::paths::env_var("PHONE_REUSE_MS")
         .ok()
         .and_then(|v| v.parse().ok())
         .map(Duration::from_millis)
@@ -131,7 +131,7 @@ pub struct Session {
     /// Readings that arrived before this moment no longer describe the
     /// screen (something changed it after they were taken).
     stale_before: Option<Instant>,
-    /// Counts tunnel (re)connections, for `iph doctor` and logs.
+    /// Counts tunnel (re)connections, for `phone doctor` and logs.
     pub connects: u64,
     /// How often, and when last, the phone's accessibility daemon was ended
     /// because it had stopped answering.
@@ -309,8 +309,8 @@ impl Session {
             self.sweep().await;
             let tunnel = conn::open_tunnel(&self.udid).await.map_err(|e| {
                 Fail::not_sent("tunnel_failed", format!("{e:#}")).hint(t(
-                    "폰이 같은 Wi-Fi에 있거나 USB로 연결되어 있고 잠금이 풀려 있는지 확인하세요. `iph doctor`로 점검할 수 있습니다.",
-                    "Check that the phone is on the same Wi-Fi or plugged in, and unlocked. Run `iph doctor`.",
+                    "폰이 같은 Wi-Fi에 있거나 USB로 연결되어 있고 잠금이 풀려 있는지 확인하세요. `phone doctor`로 점검할 수 있습니다.",
+                    "Check that the phone is on the same Wi-Fi or plugged in, and unlocked. Run `phone doctor`.",
                 ))
             })?;
             self.connects += 1;
@@ -348,8 +348,8 @@ impl Session {
                 last.unwrap_or_else(|| "accessibility service unavailable".into()),
             )
             .hint(t(
-                "개발자 모드가 켜져 있고 개발자 디스크 이미지가 연결되어 있어야 합니다. `iph doctor`로 확인하세요.",
-                "Developer Mode must be on and the developer disk image mounted. Run `iph doctor`.",
+                "개발자 모드가 켜져 있고 개발자 디스크 이미지가 연결되어 있어야 합니다. `phone doctor`로 확인하세요.",
+                "Developer Mode must be on and the developer disk image mounted. Run `phone doctor`.",
             )));
         }
         Ok(())
@@ -392,7 +392,7 @@ impl Session {
     /// screenshot shows another app in front (2026-11-16, iOS 27.3: TestFlight
     /// in front for many minutes). Locking and unlocking, a new `axauditd`,
     /// and ending `SleepLockScreen` (the phone starts it again at once) did
-    /// not change it, so iph cannot read or tap by label until the phone
+    /// not change it, so phone-cli cannot read or tap by label until the phone
     /// itself recovers. True when lockdown says the phone is unlocked.
     async fn unlocked_by_lockdown(&self) -> bool {
         match conn::route(&self.udid).await {
@@ -549,8 +549,8 @@ impl Session {
                     fail.hint(t("폰이 잠겨 있습니다. 잠금을 풀어 주세요.", "The phone is locked. Unlock it."))
                 } else if stall.is_some() && self.system_in_front {
                     fail.with("ax_restart_skipped", why_not).hint(t(
-                        "폰의 화면 읽기 서비스가 응답하지 않습니다. 홈 화면이나 제어 센터 같은 시스템 화면이 앞에 있습니다. 화면 기록 중에는 제어 센터가 읽히지 않습니다. `iph button home`으로 닫거나 `iph launch`로 앱을 띄운 뒤 다시 읽으세요. 이 두 명령은 화면을 못 읽어도 나갑니다.",
-                        "The phone's screen-reading service is not answering, and the home screen or a system panel such as Control Center is in front. Control Center cannot be read while the screen is being recorded. Close it with `iph button home` or bring an app up with `iph launch`, then read again; both go out without a reading.",
+                        "폰의 화면 읽기 서비스가 응답하지 않습니다. 홈 화면이나 제어 센터 같은 시스템 화면이 앞에 있습니다. 화면 기록 중에는 제어 센터가 읽히지 않습니다. `phone button home`으로 닫거나 `phone launch`로 앱을 띄운 뒤 다시 읽으세요. 이 두 명령은 화면을 못 읽어도 나갑니다.",
+                        "The phone's screen-reading service is not answering, and the home screen or a system panel such as Control Center is in front. Control Center cannot be read while the screen is being recorded. Close it with `phone button home` or bring an app up with `phone launch`, then read again; both go out without a reading.",
                     ))
                 } else if stall.is_some() && self.ax_restart_unhelpful {
                     fail.with("ax_restart_skipped", why_not).hint(t(
@@ -559,13 +559,13 @@ impl Session {
                     ))
                 } else if stall.is_some() {
                     fail.with("ax_restart_skipped", why_not).hint(t(
-                        "폰의 화면 읽기 서비스(axauditd)가 응답하지 않습니다. 폰이 잠긴 것은 아닙니다. 잠시 뒤 다시 시도하세요. iph가 2분에 한 번까지 그 서비스를 다시 띄웁니다.",
-                        "The phone's screen-reading service (axauditd) is not answering. The phone is not locked. Try again shortly; iph restarts that service at most every 2 minutes.",
+                        "폰의 화면 읽기 서비스(axauditd)가 응답하지 않습니다. 폰이 잠긴 것은 아닙니다. 잠시 뒤 다시 시도하세요. phone-cli가 2분에 한 번까지 그 서비스를 다시 띄웁니다.",
+                        "The phone's screen-reading service (axauditd) is not answering. The phone is not locked. Try again shortly; phone-cli restarts that service at most every 2 minutes.",
                     ))
                 } else {
                     fail.hint(t(
-                        "화면 읽기 응답을 이해하지 못했습니다. `iph read --raw`로 확인하세요.",
-                        "The screen-reading answers were not understood. Look with `iph read --raw`.",
+                        "화면 읽기 응답을 이해하지 못했습니다. `phone read --raw`로 확인하세요.",
+                        "The screen-reading answers were not understood. Look with `phone read --raw`.",
                     ))
                 });
             };
@@ -619,8 +619,8 @@ impl Session {
                     "the phone is unlocked, but its accessibility service reports only SleepLockScreen",
                 )
                 .hint(t(
-                    "폰은 잠금 해제 상태인데 화면 읽기 서비스가 잠금 화면(SleepLockScreen)만 보고합니다. 폰을 재시동하거나 수면 집중 모드를 끈 뒤 다시 시도하세요. 그동안 스크린샷(`iph screenshot`)은 정상입니다.",
-                    "The phone is unlocked, but its screen-reading service reports only the lock screen (SleepLockScreen). Restart the phone or turn off the Sleep Focus, then try again. Screenshots (`iph screenshot`) still work.",
+                    "폰은 잠금 해제 상태인데 화면 읽기 서비스가 잠금 화면(SleepLockScreen)만 보고합니다. 폰을 재시동하거나 수면 집중 모드를 끈 뒤 다시 시도하세요. 그동안 스크린샷(`phone screenshot`)은 정상입니다.",
+                    "The phone is unlocked, but its screen-reading service reports only the lock screen (SleepLockScreen). Restart the phone or turn off the Sleep Focus, then try again. Screenshots (`phone screenshot`) still work.",
                 )));
             }
             self.ax_restart_unhelpful = false;
@@ -662,9 +662,9 @@ impl Session {
             // (Lost first gestures turned out to be touches sent before the
             // phone had opened the session's devices, which
             // `InputSession::open` now waits for; the gap stays as a margin.
-            // `IPH_REOPEN_GAP_MS` overrides it.)
+            // `PHONE_REOPEN_GAP_MS` overrides it.)
             if let Some(closed) = self.input_closed_at {
-                let gap = std::env::var("IPH_REOPEN_GAP_MS")
+                let gap = crate::paths::env_var("PHONE_REOPEN_GAP_MS")
                     .ok()
                     .and_then(|v| v.parse().ok())
                     .map(Duration::from_millis)
@@ -696,8 +696,8 @@ impl Session {
             }
             if self.input.is_none() {
                 return Err(Fail::not_sent("input_unavailable", last).hint(t(
-                    "터치 입력에는 개발자 디스크 이미지의 display service가 필요합니다. `iph doctor`로 확인하세요.",
-                    "Touch input needs the display service from the developer disk image. Run `iph doctor`.",
+                    "터치 입력에는 개발자 디스크 이미지의 display service가 필요합니다. `phone doctor`로 확인하세요.",
+                    "Touch input needs the display service from the developer disk image. Run `phone doctor`.",
                 )));
             }
         }
@@ -707,7 +707,7 @@ impl Session {
 
     /// Send one gesture. The phone sometimes closes the input connections on
     /// its own (it answers the next report with a reset, seen 2026-11-11);
-    /// iph only finds out when it writes. When that write fails before a
+    /// phone-cli only finds out when it writes. When that write fails before a
     /// single report went out, nothing reached the phone, so a new session is
     /// opened and the gesture is sent once more. A gesture that failed
     /// halfway is never repeated.
@@ -732,8 +732,8 @@ impl Session {
                 continue;
             }
             return Err(Fail::unknown("input_failed", format!("{e:#}")).hint(t(
-                "입력이 나갔을 수 있습니다. 다시 보내지 말고 `iph read`로 화면을 확인하세요.",
-                "The input may have gone out. Do not resend; check the screen with `iph read`.",
+                "입력이 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
+                "The input may have gone out. Do not resend; check the screen with `phone read`.",
             )));
         }
         unreachable!("the loop returns on its second pass")

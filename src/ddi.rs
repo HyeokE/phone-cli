@@ -1,7 +1,7 @@
-//! The developer disk image. The accessibility, screen and input services iph
+//! The developer disk image. The accessibility, screen and input services phone-cli
 //! uses come from it, and the phone forgets it when it restarts.
 //!
-//! iph does not ship Apple's image. It uses Xcode's copy when the Mac has one,
+//! phone-cli does not ship Apple's image. It uses Xcode's copy when the Mac has one,
 //! and otherwise fetches the Cryptex variant once from the public
 //! DeveloperDiskImage repository (pinned commit, every file checked against
 //! its SHA-256) into its own folder. Apple's signing server personalizes it
@@ -128,8 +128,8 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn fetch_and_load() {
-        let dir = std::env::temp_dir().join(format!("iph-ddi-{}", std::process::id()));
-        unsafe { std::env::set_var("IPH_STATE_DIR", &dir) };
+        let dir = std::env::temp_dir().join(format!("phone-ddi-{}", std::process::id()));
+        unsafe { std::env::set_var("PHONE_STATE_DIR", &dir) };
         let restore = fetched().await.unwrap();
         assert!(cache_ok(&restore));
         let assets = Cryptex1Assets::load(&restore).await.unwrap();

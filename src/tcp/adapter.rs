@@ -39,7 +39,7 @@ pub struct UdpDatagram {
 
 /// Maximum number of retransmission attempts before a connection is killed.
 ///
-/// iphone-cli: 6 instead of 5, and a first timeout of 500 ms instead of 200
+/// phone-cli: 6 instead of 5, and a first timeout of 500 ms instead of 200
 /// (below). Upstream gives a connection up after 12.6 s without an
 /// acknowledgement. This stack runs inside a tunnel that is itself a TCP
 /// stream to the phone, so nothing is ever lost on the way, only held up:

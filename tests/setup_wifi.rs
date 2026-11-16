@@ -21,7 +21,7 @@ impl Drop for Sandbox {
 #[tokio::test]
 async fn wireless_setup_requires_an_explicit_flag_in_both_commands() {
     let dir = Sandbox(PathBuf::from(format!(
-        "/tmp/iph-setup-{}",
+        "/tmp/phone-setup-{}",
         &uuid::Uuid::new_v4().simple().to_string()[..8],
     )));
     std::fs::create_dir_all(&dir.0).unwrap();
@@ -31,15 +31,16 @@ async fn wireless_setup_requires_an_explicit_flag_in_both_commands() {
 
     for command in ["setup", "doctor"] {
         for fix_wifi in [false, true] {
-            let mut cli = Command::new(env!("CARGO_BIN_EXE_iph"));
+            let mut cli = Command::new(env!("CARGO_BIN_EXE_phone"));
             cli.args(["--udid", udid, command]);
             if fix_wifi {
                 cli.arg("--fix-wifi");
             }
-            cli.env("IPH_STATE_DIR", &dir.0)
-                .env("IPH_CONFIG_DIR", dir.0.join("config"))
-                .env("IPH_LANG", "en")
-                .env_remove("IPH_TRACE")
+            cli.env("PHONE_STATE_DIR", &dir.0)
+                .env("PHONE_CONFIG_DIR", dir.0.join("config"))
+                .env("PHONE_LANG", "en")
+                .env_remove("PHONE_TRACE")
+            .env_remove("IPH_TRACE")
                 .stdin(Stdio::null())
                 .kill_on_drop(true);
 

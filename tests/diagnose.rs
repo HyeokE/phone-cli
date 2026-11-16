@@ -29,7 +29,7 @@ struct Fixture {
 
 impl Fixture {
     fn new(disappear: bool, malformed: bool, bonjour: bool) -> Self {
-        let dir = std::env::temp_dir().join(format!("iph-diag-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("phone-diag-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(dir.join("tools")).unwrap();
         std::fs::create_dir_all(dir.join("config")).unwrap();
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -78,16 +78,21 @@ impl Fixture {
     }
 
     fn command(&self) -> Command {
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE_iph"));
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_phone"));
         cmd.current_dir(&self.dir)
             .env("PATH", self.dir.join("tools"))
-            .env("IPH_STATE_DIR", self.dir.join("state"))
-            .env("IPH_CONFIG_DIR", self.dir.join("config"))
+            .env("PHONE_STATE_DIR", self.dir.join("state"))
+            .env("PHONE_CONFIG_DIR", self.dir.join("config"))
             .env("USBMUXD_SOCKET_ADDRESS", &self.address)
+            .env_remove("PHONE_UDID")
             .env_remove("IPH_UDID")
+            .env_remove("PHONE_TRACE")
             .env_remove("IPH_TRACE")
+            .env_remove("PHONE_LOG")
             .env_remove("IPH_LOG")
+            .env_remove("PHONE_PREFER")
             .env_remove("IPH_PREFER")
+            .env_remove("PHONE_PCAP")
             .env_remove("IPH_PCAP");
         cmd
     }

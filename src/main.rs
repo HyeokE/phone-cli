@@ -3,7 +3,7 @@
 use std::{io::Read, time::Instant};
 
 use clap::{Parser, Subcommand};
-use iphone_cli::{
+use phone_cli::{
     client, clock, connect, daemon, devices, diagnose, events, fields, human,
     mcp,
     reply::{Fail, envelope},
@@ -13,7 +13,7 @@ use serde_json::{Map, Value, json};
 
 #[derive(Parser)]
 #[command(
-    name = "iph",
+    name = "phone",
     version,
     about = "Read and operate any app on a real iPhone through its accessibility tree",
     long_about = "Read and operate any app on a real iPhone through its accessibility tree.\n\
@@ -21,7 +21,7 @@ use serde_json::{Map, Value, json};
                   Exit codes: 0 ok, 1 nothing was sent, 2 outcome unknown (check the screen)."
 )]
 struct Cli {
-    /// Device to use. Defaults to IPH_UDID, config.toml, or the only connected iPhone.
+    /// Device to use. Defaults to PHONE_UDID, config.toml, or the only connected iPhone.
     #[arg(long, global = true)]
     udid: Option<String>,
     /// Print for people instead of JSON.
@@ -148,7 +148,7 @@ enum Cmd {
         #[arg(long = "arg", value_name = "K=V")]
         args: Vec<String>,
     },
-    /// Run a saved script by name (see `iph scripts`).
+    /// Run a saved script by name (see `phone scripts`).
     Run {
         name: String,
         /// Argument the script reads as `args.name`, repeatable: --arg name=value
@@ -233,7 +233,7 @@ fn main() {
     events::init_tracing();
     // The command futures nest deeply; give the thread that polls them room.
     let worker = std::thread::Builder::new()
-        .name("iph-main".into())
+        .name("phone-main".into())
         .stack_size(64 << 20)
         .spawn(move || {
             let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -257,12 +257,12 @@ async fn run(cli: Cli) -> i32 {
     // Commands that need no phone.
     match &cli.command {
         Cmd::Diagnose(args) => {
-            // Run one finite iph command without a shell. Reject recursive
+            // Run one finite phone command without a shell. Reject recursive
             // collectors and interactive/long-lived commands.
             if !args.command.is_empty() {
-                let child = Cli::try_parse_from(std::iter::once("iph".to_string()).chain(args.command.iter().cloned()));
+                let child = Cli::try_parse_from(std::iter::once("phone".to_string()).chain(args.command.iter().cloned()));
                 if child.is_ok_and(|c| matches!(c.command, Cmd::Diagnose(_) | Cmd::Daemon | Cmd::Mcp { .. } | Cmd::Setup { .. })) {
-                    let v = envelope(Err(Fail::invalid("diagnose can capture a finite iph command; diagnose, daemon, mcp and setup cannot be nested")), started);
+                    let v = envelope(Err(Fail::invalid("diagnose can capture a finite phone command; diagnose, daemon, mcp and setup cannot be nested")), started);
                     print(&v, human_out, "diagnose");
                     return 1;
                 }
@@ -303,7 +303,7 @@ async fn run(cli: Cli) -> i32 {
             return match daemon::run(udid).await {
                 Ok(()) => 0,
                 Err(e) => {
-                    eprintln!("iph daemon: {e:#}");
+                    eprintln!("phone daemon: {e:#}");
                     1
                 }
             };
@@ -312,7 +312,7 @@ async fn run(cli: Cli) -> i32 {
             return match mcp::serve(udid, tools).await {
                 Ok(()) => 0,
                 Err(e) => {
-                    eprintln!("iph mcp: {e:#}");
+                    eprintln!("phone mcp: {e:#}");
                     1
                 }
             };
@@ -360,7 +360,7 @@ async fn run(cli: Cli) -> i32 {
         Cmd::Apps => ("apps", Value::Null),
         Cmd::Screenshot { output } => {
             let name = output.unwrap_or_else(|| {
-                format!("iph-screenshot-{}.png", clock::now_utc().replace([':', '-'], ""))
+                format!("phone-screenshot-{}.png", clock::now_utc().replace([':', '-'], ""))
             });
             // The daemon writes the file, so the path must not depend on its cwd.
             let path = std::path::absolute(&name)

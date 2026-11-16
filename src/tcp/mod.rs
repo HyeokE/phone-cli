@@ -1,6 +1,6 @@
 //! A userspace TCP stack that runs over any [`ReadWrite`] transport.
 //!
-//! iphone-cli: this is jktcp 0.1.8 by Jackson Coxson (MIT, see LICENSE.jktcp),
+//! phone-cli: this is jktcp 0.1.8 by Jackson Coxson (MIT, see LICENSE.jktcp),
 //! taken into this crate so that it can be published without a `[patch]`.
 //! Changed here: two retransmission constants in `adapter.rs`, the capture's
 //! microseconds in `log_packet`, packet capture always built in, and the
@@ -24,12 +24,12 @@
 //! on the heap alongside other things that reference the adapter.
 //!
 //! ```rust,ignore
-//! use iphone_cli::tcp::adapter::Adapter;
-//! use iphone_cli::tcp::stream::AdapterStream;
+//! use phone_cli::tcp::adapter::Adapter;
+//! use phone_cli::tcp::stream::AdapterStream;
 //! use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //! # use std::net::{IpAddr, Ipv6Addr};
 //!
-//! # async fn example(transport: impl iphone_cli::tcp::ReadWrite + 'static) -> std::io::Result<()> {
+//! # async fn example(transport: impl phone_cli::tcp::ReadWrite + 'static) -> std::io::Result<()> {
 //! let mut adapter = Adapter::new(Box::new(transport), todo!(), todo!());
 //!
 //! let mut stream = AdapterStream::connect(&mut adapter, 1234).await?;
@@ -60,11 +60,11 @@
 //!   (FFI, trait objects, etc.).
 //!
 //! ```rust,ignore
-//! use iphone_cli::tcp::adapter::Adapter;
+//! use phone_cli::tcp::adapter::Adapter;
 //! use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //! # use std::net::{IpAddr, Ipv6Addr};
 //!
-//! # async fn example(transport: impl iphone_cli::tcp::ReadWrite + 'static) -> std::io::Result<()> {
+//! # async fn example(transport: impl phone_cli::tcp::ReadWrite + 'static) -> std::io::Result<()> {
 //! let adapter = Adapter::new(Box::new(transport), todo!(), todo!());
 //! let mut handle = adapter.to_async_handle();
 //!

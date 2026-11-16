@@ -18,13 +18,13 @@ use crate::{
     reply::{Fail, envelope},
 };
 
-/// Pick the phone: `--udid`, then `IPH_UDID`, then `udid` in config.toml,
+/// Pick the phone: `--udid`, then `PHONE_UDID`, then `udid` in config.toml,
 /// then the only connected phone.
 pub async fn resolve_udid(flag: Option<String>) -> Result<String, Fail> {
     if let Some(u) = flag.filter(|u| !u.is_empty()) {
         return Ok(u);
     }
-    if let Ok(u) = std::env::var("IPH_UDID")
+    if let Ok(u) = crate::paths::env_var("PHONE_UDID")
         && !u.is_empty() {
             return Ok(u);
         }
@@ -40,16 +40,16 @@ pub async fn resolve_udid(flag: Option<String>) -> Result<String, Fail> {
     match devices.len() {
         1 => Ok(devices[0].udid.clone()),
         0 => Err(Fail::not_sent("no_device", "no iPhone is connected").hint(t(
-            "폰을 USB로 연결하거나 컴퓨터와 같은 LAN에 두고 화면을 켜 주세요. USB로 신뢰한 폰이 검색되지 않으면 `iph --udid <UDID> connect --ip <폰 IP>`로 주소를 검증·저장하세요. 처음이라면 `iph setup`을 실행하세요.",
-            "Plug the phone in, or put it on the same LAN and wake it. For a USB-paired phone missing from discovery, verify and save its address with `iph --udid <UDID> connect --ip <phone IP>`. First time? Run `iph setup`.",
+            "폰을 USB로 연결하거나 컴퓨터와 같은 LAN에 두고 화면을 켜 주세요. USB로 신뢰한 폰이 검색되지 않으면 `phone --udid <UDID> connect --ip <폰 IP>`로 주소를 검증·저장하세요. 처음이라면 `phone setup`을 실행하세요.",
+            "Plug the phone in, or put it on the same LAN and wake it. For a USB-paired phone missing from discovery, verify and save its address with `phone --udid <UDID> connect --ip <phone IP>`. First time? Run `phone setup`.",
         ))),
         n => Err(Fail::not_sent(
             "multiple_devices",
             format!("{n} iPhones are connected"),
         )
         .hint(t(
-            "`--udid <UDID>`로 하나를 고르거나 ~/.config/iph/config.toml에 `udid = \"…\"`를 적으세요.",
-            "Pick one with `--udid <UDID>` or put `udid = \"…\"` in ~/.config/iph/config.toml.",
+            "`--udid <UDID>`로 하나를 고르거나 ~/.config/phone/config.toml에 `udid = \"…\"`를 적으세요.",
+            "Pick one with `--udid <UDID>` or put `udid = \"…\"` in ~/.config/phone/config.toml.",
         ))
         .with("devices", json!(devices))),
     }
@@ -87,7 +87,7 @@ fn detach(cmd: &mut std::process::Command) {
 
 /// No console window, and out of the terminal's process group. The daemon
 /// must not inherit this process's own stdout/stderr: when an agent reads
-/// `iph` through a pipe, an inherited copy would keep the pipe open until the
+/// `phone` through a pipe, an inherited copy would keep the pipe open until the
 /// daemon exits, and the caller would wait that long.
 #[cfg(windows)]
 fn detach(cmd: &mut std::process::Command) {
@@ -201,8 +201,8 @@ pub async fn request(udid: &str, cmd: &str, args: Value) -> Value {
                     format!("the daemon did not answer within {} s and was stopped", patience.as_secs()),
                 )
                 .hint(t(
-                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `iph read`로 화면을 확인하세요.",
-                    "The input may have gone out. Do not resend; check the screen with `iph read`.",
+                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
+                    "The input may have gone out. Do not resend; check the screen with `phone read`.",
                 ))),
                 started,
             );
@@ -219,8 +219,8 @@ pub async fn request(udid: &str, cmd: &str, args: Value) -> Value {
                     "the daemon closed the connection before answering",
                 )
                 .hint(t(
-                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `iph read`로 화면을 확인하세요.",
-                    "The input may have gone out. Do not resend; check the screen with `iph read`.",
+                    "입력이 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
+                    "The input may have gone out. Do not resend; check the screen with `phone read`.",
                 ))),
                 started,
             );

@@ -1,7 +1,7 @@
 //! Scripts: JavaScript that drives the phone.
 //!
-//! `iph script` runs code as it is given; `iph run <name>` runs a saved one,
-//! from `~/.config/iph/scripts/` or from the examples in this repository's
+//! `phone script` runs code as it is given; `phone run <name>` runs a saved one,
+//! from `~/.config/phone/scripts/` or from the examples in this repository's
 //! `scripts/` folder (which are built into the binary). A script calls the
 //! commands the CLI has (`read`, `tap`, `scroll` …) as functions and gets the
 //! same result objects back. A call that fails throws.
@@ -82,8 +82,8 @@ pub fn list() -> Vec<(String, String, String)> {
 pub fn load(name: &str) -> Res<(String, String)> {
     if name.ends_with(".js") || name.contains('/') {
         return Err(Fail::invalid(format!("\"{name}\" is a file, not the name of a saved script")).hint(t(
-            "파일은 `iph script <파일>`로 실행합니다.",
-            "Run a file with `iph script <file>`.",
+            "파일은 `phone script <파일>`로 실행합니다.",
+            "Run a file with `phone script <file>`.",
         )));
     }
     let path = paths::personal_scripts().join(format!("{name}.js"));
@@ -94,8 +94,8 @@ pub fn load(name: &str) -> Res<(String, String)> {
         return Ok((code.to_string(), format!("builtin:{name}")));
     }
     Err(Fail::not_sent("script_not_found", format!("no script named \"{name}\"")).hint(t(
-        "`iph scripts`로 목록을 확인하세요. 개인 스크립트는 ~/.config/iph/scripts/<이름>.js 에 둡니다.",
-        "List them with `iph scripts`. Personal scripts live in ~/.config/iph/scripts/<name>.js.",
+        "`phone scripts`로 목록을 확인하세요. 개인 스크립트는 ~/.config/phone/scripts/<이름>.js 에 둡니다.",
+        "List them with `phone scripts`. Personal scripts live in ~/.config/phone/scripts/<name>.js.",
     )))
 }
 
@@ -111,17 +111,17 @@ pub fn cmd_scripts() -> Res {
 // The engine
 // ---------------------------------------------------------------------------
 
-/// What a script sees. Every function goes through `__iph`, the one door to
+/// What a script sees. Every function goes through `__phone`, the one door to
 /// the phone, as JSON text both ways; a result that is not `ok` is thrown.
 const PRELUDE: &str = r#"
 "use strict";
 (() => {
   const opts = (o) => (o && typeof o === "object" && !Array.isArray(o)) ? o : {};
   const call = (cmd, args) => {
-    const r = JSON.parse(__iph(cmd, JSON.stringify(args === undefined ? {} : args)));
+    const r = JSON.parse(__phone(cmd, JSON.stringify(args === undefined ? {} : args)));
     if (r.ok) return r;
     const e = new Error((r.error && r.error.message) || "the call failed");
-    e.name = "IphError";
+    e.name = "PhoneError";
     e.cmd = cmd;
     e.code = r.error && r.error.code;
     e.outcome = r.outcome;
@@ -261,7 +261,7 @@ fn js_main(
             let globals = ctx.globals();
             let (stop, door) = (shared.clone(), calls.clone());
             globals.set(
-                "__iph",
+                "__phone",
                 Function::new(ctx.clone(), move |cmd: String, args: String| -> String {
                     if stop.stop.load(Ordering::Relaxed) {
                         return STOPPED.to_string();
@@ -308,7 +308,7 @@ fn js_main(
                 options.filename = Some(name.into());
                 options
             };
-            ctx.eval_with_options::<(), _>(PRELUDE, named("iph"))?;
+            ctx.eval_with_options::<(), _>(PRELUDE, named("phone"))?;
             // The script is the body of a function, so `return` works at its
             // top level, and its first line is line 2 of what is evaluated.
             let run: Function = ctx.eval_with_options(
@@ -350,7 +350,7 @@ pub async fn run<H: ScriptHost>(host: &mut H, code: &str, args: &Map<String, Val
     let (thread_shared, code_owned, args_owned, memory) =
         (shared.clone(), code.to_string(), Value::Object(args.clone()), limits.memory);
     let spawned = std::thread::Builder::new()
-        .name("iph-script".into())
+        .name("phone-script".into())
         .stack_size(8 << 20)
         .spawn(move || {
             let end = js_main(&code_owned, &args_owned, memory, &thread_shared, door);
@@ -568,15 +568,15 @@ pub fn finish(ended: Ended, state: &RunState) -> Res {
             "the script ran longer than it is allowed to",
         )
         .hint(t(
-            "config.toml의 [script] timeout_secs로 한도를 바꿀 수 있습니다. 입력을 보낸 뒤였다면 `iph read`로 화면부터 확인하세요.",
-            "[script] timeout_secs in config.toml changes the limit. If input had gone out, check the screen with `iph read` first.",
+            "config.toml의 [script] timeout_secs로 한도를 바꿀 수 있습니다. 입력을 보낸 뒤였다면 `phone read`로 화면부터 확인하세요.",
+            "[script] timeout_secs in config.toml changes the limit. If input had gone out, check the screen with `phone read` first.",
         )),
         End::Engine(message) => Fail::new(outcome_of(None), "script_error", message),
     };
     let fail = if sent > 0 && fail.hint.is_none() {
         fail.hint(t(
-            "스크립트가 입력을 보낸 뒤에 멈췄습니다. 다시 실행하기 전에 `iph read`로 화면을 확인하세요.",
-            "The script stopped after it had sent input. Check the screen with `iph read` before running it again.",
+            "스크립트가 입력을 보낸 뒤에 멈췄습니다. 다시 실행하기 전에 `phone read`로 화면을 확인하세요.",
+            "The script stopped after it had sent input. Check the screen with `phone read` before running it again.",
         ))
     } else {
         fail
@@ -1014,7 +1014,7 @@ mod tests {
 
     #[test]
     fn the_line_comes_from_the_scripts_own_frame() {
-        let stack = "    at call (iph:9:15)\n    at <anonymous> (iph:23:20)\n    at <anonymous> (script:4:5)\n    at <anonymous> (script:1:1)\n";
+        let stack = "    at call (phone:9:15)\n    at <anonymous> (phone:23:20)\n    at <anonymous> (script:4:5)\n    at <anonymous> (script:1:1)\n";
         assert_eq!(script_line(Some(stack)), Some(3));
         assert_eq!(script_line(Some("    at script:2:9\n")), Some(1));
         assert_eq!(script_line(Some("    at f (eval_script:7:1)\n")), None);

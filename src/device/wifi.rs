@@ -180,7 +180,7 @@ pub async fn inspect(provider: &dyn IdeviceProvider, fix: bool) -> Wireless {
     })
 }
 
-/// Always select the target's USB entry, even with IPH_PREFER=wifi.
+/// Always select the target's USB entry, even with PHONE_PREFER=wifi.
 pub fn usb_device<'a>(devices: &'a [UsbmuxdDevice], udid: &str) -> Option<&'a UsbmuxdDevice> {
     devices
         .iter()

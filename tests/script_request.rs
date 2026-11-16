@@ -3,17 +3,17 @@
 
 #![allow(clippy::result_large_err)]
 
-use iphone_cli::{config::Config, device::session::Session, script};
+use phone_cli::{config::Config, device::session::Session, script};
 use serde_json::json;
 
 const NO_SUCH_PHONE: &str = "00000000-TESTONLY-NOPHONE";
 
 #[tokio::test]
 async fn a_request_carries_its_arguments_and_the_saved_scripts_name() {
-    let dir = std::env::temp_dir().join(format!("iph-script-{}", uuid::Uuid::new_v4()));
+    let dir = std::env::temp_dir().join(format!("phone-script-{}", uuid::Uuid::new_v4()));
     unsafe {
-        std::env::set_var("IPH_STATE_DIR", &dir);
-        std::env::set_var("IPH_CONFIG_DIR", dir.join("config"));
+        std::env::set_var("PHONE_STATE_DIR", &dir);
+        std::env::set_var("PHONE_CONFIG_DIR", dir.join("config"));
     }
     let mut s = Session::new(NO_SUCH_PHONE.into(), Config::default());
     let req = script::request("return { n: Number(args.n) + 1 }", json!({"n": "41"}).as_object().unwrap(), Some(("answer", "builtin:answer")));

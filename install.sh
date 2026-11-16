@@ -1,24 +1,26 @@
 #!/bin/sh
-# Installs iph on a Mac from the latest GitHub release, with only the tools macOS
+# Installs phone-cli on a Mac from the latest GitHub release, with only the tools macOS
 # ships (curl, tar, shasum). No Rust needed.
 #
-#   curl -fsSL https://raw.githubusercontent.com/HyunSeob/iphone-cli/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/HyeokE/phone-cli/main/install.sh | sh
 #
-# IPH_VERSION=v0.1.0 picks a release instead of the latest one.
-# IPH_INSTALL_DIR picks the folder instead of ~/.local/bin.
+# PHONE_VERSION=v0.1.0 picks a release instead of the latest one.
+# PHONE_INSTALL_DIR picks the folder instead of ~/.local/bin.
+# The pre-rename IPH_VERSION / IPH_INSTALL_DIR are still read when unset.
 set -eu
 
-repo="HyunSeob/iphone-cli"
-asset="iph-macos-universal.tar.gz"
-dir="${IPH_INSTALL_DIR:-$HOME/.local/bin}"
+repo="HyeokE/phone-cli"
+asset="phone-macos-universal.tar.gz"
+version="${PHONE_VERSION:-${IPH_VERSION:-}}"
+dir="${PHONE_INSTALL_DIR:-${IPH_INSTALL_DIR:-$HOME/.local/bin}}"
 
 if [ "$(uname -s)" != "Darwin" ]; then
-  echo "install.sh is for macOS. On Windows, download iph-windows-x86_64.zip from https://github.com/$repo/releases" >&2
+  echo "install.sh is for macOS. On Windows, download phone-windows-x86_64.zip from https://github.com/$repo/releases" >&2
   exit 1
 fi
 
-if [ -n "${IPH_VERSION:-}" ]; then
-  base="https://github.com/$repo/releases/download/$IPH_VERSION"
+if [ -n "$version" ]; then
+  base="https://github.com/$repo/releases/download/$version"
 else
   base="https://github.com/$repo/releases/latest/download"
 fi
@@ -36,13 +38,13 @@ curl -fsSL -o "$tmp/$asset.sha256" "$base/$asset.sha256"
 
 tar -xzf "$tmp/$asset" -C "$tmp"
 mkdir -p "$dir"
-# Replace rather than overwrite in place: a running iph keeps its old file.
-cp "$tmp/iph/iph" "$dir/iph.new"
-chmod 755 "$dir/iph.new"
-mv -f "$dir/iph.new" "$dir/iph"
-xattr -d com.apple.quarantine "$dir/iph" 2>/dev/null || true
+# Replace rather than overwrite in place: a running phone-cli keeps its old file.
+cp "$tmp/phone/phone" "$dir/phone.new"
+chmod 755 "$dir/phone.new"
+mv -f "$dir/phone.new" "$dir/phone"
+xattr -d com.apple.quarantine "$dir/phone" 2>/dev/null || true
 
-echo "Installed $("$dir/iph" --version) to $dir/iph"
+echo "Installed $("$dir/phone" --version) to $dir/phone"
 case ":$PATH:" in
   *":$dir:"*) ;;
   *)
@@ -52,4 +54,4 @@ case ":$PATH:" in
     ;;
 esac
 echo
-echo "Next: plug the iPhone in by USB, tap Trust on it, and run: iph setup"
+echo "Next: plug the iPhone in by USB, tap Trust on it, and run: phone setup"

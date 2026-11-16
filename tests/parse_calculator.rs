@@ -1,7 +1,7 @@
 //! The two passes of one real reading (Calculator showing 408, iOS 27.0.1)
 //! through the whole pipeline: archive layers → dump → element list.
 
-use iphone_cli::{
+use phone_cli::{
     ax::{
         dump::{Dump, DumpKind, Payload},
         tree::{BuildOptions, Screen},

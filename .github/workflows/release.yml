@@ -146,7 +146,7 @@ jobs:
 
           cargo_lock = pathlib.Path("Cargo.lock").read_text()
           updated_lock, n2 = re.subn(
-              r'(\[\[package\]\]\s*\nname\s*=\s*"iphone-cli"\s*\nversion\s*=\s*")' + re.escape(old_ver) + r'(")',
+              r'(\[\[package\]\]\s*\nname\s*=\s*"phone-cli"\s*\nversion\s*=\s*")' + re.escape(old_ver) + r'(")',
               rf'\g<1>{new_ver}\2',
               cargo_lock,
               count=1,
@@ -192,23 +192,23 @@ jobs:
       - run: cargo build --release --locked --target x86_64-apple-darwin
       - name: Package
         run: |
-          mkdir -p dist/iph
-          lipo -create -output dist/iph/iph \
-            target/aarch64-apple-darwin/release/iph \
-            target/x86_64-apple-darwin/release/iph
+          mkdir -p dist/phone
+          lipo -create -output dist/phone/phone \
+            target/aarch64-apple-darwin/release/phone \
+            target/x86_64-apple-darwin/release/phone
           # The merged file comes out unsigned, and Apple silicon will not run
           # unsigned code: sign every slice ad hoc.
-          codesign --force --sign - dist/iph/iph
-          codesign --verify --verbose dist/iph/iph
-          lipo -info dist/iph/iph
-          dist/iph/iph --version
-          cp LICENSE LICENSE.idevice LICENSE.jktcp dist/iph/
-          tar -C dist -czf dist/iph-macos-universal.tar.gz iph
-          (cd dist && shasum -a 256 iph-macos-universal.tar.gz > iph-macos-universal.tar.gz.sha256)
+          codesign --force --sign - dist/phone/phone
+          codesign --verify --verbose dist/phone/phone
+          lipo -info dist/phone/phone
+          dist/phone/phone --version
+          cp LICENSE LICENSE.idevice LICENSE.jktcp dist/phone/
+          tar -C dist -czf dist/phone-macos-universal.tar.gz phone
+          (cd dist && shasum -a 256 phone-macos-universal.tar.gz > phone-macos-universal.tar.gz.sha256)
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/iph-macos-universal.tar.gz*
+          path: dist/phone-macos-universal.tar.gz*
 
   windows:
     needs: plan
@@ -222,16 +222,16 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist/iph | Out-Null
-          Copy-Item target/release/iph.exe, LICENSE, LICENSE.idevice, LICENSE.jktcp dist/iph/
-          dist/iph/iph.exe --version
-          Compress-Archive -Path dist/iph/* -DestinationPath dist/iph-windows-x86_64.zip
-          $hash = (Get-FileHash dist/iph-windows-x86_64.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  iph-windows-x86_64.zip" | Out-File -Encoding ascii -NoNewline dist/iph-windows-x86_64.zip.sha256
+          New-Item -ItemType Directory -Force dist/phone | Out-Null
+          Copy-Item target/release/phone.exe, LICENSE, LICENSE.idevice, LICENSE.jktcp dist/phone/
+          dist/phone/phone.exe --version
+          Compress-Archive -Path dist/phone/* -DestinationPath dist/phone-windows-x86_64.zip
+          $hash = (Get-FileHash dist/phone-windows-x86_64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  phone-windows-x86_64.zip" | Out-File -Encoding ascii -NoNewline dist/phone-windows-x86_64.zip.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/iph-windows-x86_64.zip*
+          path: dist/phone-windows-x86_64.zip*
 
   release:
     needs: [plan, macos, windows]

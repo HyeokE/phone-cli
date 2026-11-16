@@ -1,4 +1,4 @@
-//! `~/.config/iph/config.toml`.
+//! `~/.config/phone/config.toml`.
 
 use serde::Deserialize;
 
@@ -14,7 +14,7 @@ pub struct Config {
     pub script: ScriptConfig,
 }
 
-/// Limits for `iph script` and `iph run`.
+/// Limits for `phone script` and `phone run`.
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct ScriptConfig {
@@ -30,7 +30,7 @@ impl Default for ScriptConfig {
     }
 }
 
-/// `iph dnd`.
+/// `phone dnd`.
 #[derive(Debug, Clone, Deserialize, serde::Serialize, Default)]
 #[serde(default)]
 pub struct DndConfig {

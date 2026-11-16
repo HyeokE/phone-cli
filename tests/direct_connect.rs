@@ -36,7 +36,7 @@ impl Fixture {
             std::env::temp_dir()
         };
         let dir = base.join(format!(
-            "iph-route-{}",
+            "phone-route-{}",
             &uuid::Uuid::new_v4().simple().to_string()[..8]
         ));
         let udid = format!("TEST-{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
@@ -91,7 +91,7 @@ impl Fixture {
     }
 
     fn run_prefer(&self, args: &[&str], prefer: &str) -> (i32, Value) {
-        let out = Command::new(env!("CARGO_BIN_EXE_iph"))
+        let out = Command::new(env!("CARGO_BIN_EXE_phone"))
             .args(args.iter().map(|a| {
                 if *a == "TEST-PHONE" {
                     self.udid.as_str()
@@ -99,12 +99,15 @@ impl Fixture {
                     a
                 }
             }))
-            .env("IPH_STATE_DIR", self.dir.join("state"))
-            .env("IPH_CONFIG_DIR", self.dir.join("config"))
+            .env("PHONE_STATE_DIR", self.dir.join("state"))
+            .env("PHONE_CONFIG_DIR", self.dir.join("config"))
             .env("USBMUXD_SOCKET_ADDRESS", &self.address)
-            .env("IPH_PREFER", prefer)
+            .env("PHONE_PREFER", prefer)
+            .env_remove("PHONE_UDID")
             .env_remove("IPH_UDID")
+            .env_remove("PHONE_TRACE")
             .env_remove("IPH_TRACE")
+            .env_remove("PHONE_LOG")
             .env_remove("IPH_LOG")
             .output()
             .unwrap();

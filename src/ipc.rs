@@ -1,4 +1,4 @@
-//! The channel between `iph` and its daemon: a Unix socket on macOS, a named
+//! The channel between `phone` and its daemon: a Unix socket on macOS, a named
 //! pipe on Windows. Either way one connection carries one request line and
 //! one reply line.
 
@@ -62,7 +62,7 @@ mod imp {
     const PIPE_BUSY: i32 = 231;
 
     fn name(udid: &str) -> String {
-        format!(r"\\.\pipe\iph-{udid}")
+        format!(r"\\.\pipe\phone-{udid}")
     }
 
     pub async fn connect(udid: &str) -> std::io::Result<Stream> {

@@ -1,4 +1,4 @@
-//! The resident process (`iph daemon`, started on demand by the first `iph`
+//! The resident process (`phone daemon`, started on demand by the first `phone`
 //! call). It keeps the tunnel, the accessibility subscription and the input
 //! session open for one phone and serves requests from a Unix socket (a named
 //! pipe on Windows), one at a time.
@@ -77,7 +77,7 @@ async fn dispatch(s: &mut Session, cmd: &str, args: &Value) -> Res {
                 .ok_or_else(|| Fail::invalid("batch needs a JSON array of steps"))?;
             Box::pin(s.run_steps(steps, &Map::new())).await
         }
-        // `iph script` and `iph run`: whoever asks sends the code along.
+        // `phone script` and `phone run`: whoever asks sends the code along.
         "script" => Box::pin(s.serve_script(args)).await,
         "doctor" => Box::pin(doctor::run(s, parse_args(args)?)).await,
         "dnd" => Box::pin(s.cmd_dnd(parse_args(args)?)).await,
@@ -94,7 +94,7 @@ async fn dispatch(s: &mut Session, cmd: &str, args: &Value) -> Res {
         }),
         // For testing recovery: close the tunnel under the open connections,
         // as a pulled cable or a Wi-Fi drop would.
-        "debug_drop_tunnel" if std::env::var("IPH_DEBUG").is_ok_and(|v| v == "1") => {
+        "debug_drop_tunnel" if crate::paths::env_var("PHONE_DEBUG").is_ok_and(|v| v == "1") => {
             let closed = match s.tunnel.as_mut() {
                 Some(t) => t.adapter.close().await.is_ok(),
                 None => false,
@@ -172,8 +172,8 @@ async fn handle(stream: ipc::Stream, shared: Arc<Shared>) -> Result<()> {
                         format!("`{cmd}` did not finish within {} s", budget(cmd).as_secs()),
                     )
                     .hint(crate::i18n::t(
-                        "입력이 일부 나갔을 수 있습니다. `iph read`로 화면을 확인하세요.",
-                        "Some input may have gone out. Check the screen with `iph read`.",
+                        "입력이 일부 나갔을 수 있습니다. `phone read`로 화면을 확인하세요.",
+                        "Some input may have gone out. Check the screen with `phone read`.",
                     )))
                 }
             };
@@ -196,9 +196,9 @@ async fn handle(stream: ipc::Stream, shared: Arc<Shared>) -> Result<()> {
 
 /// The tunnel's TCP stack and the device library say why a connection went
 /// away ("timed out after 5 retransmissions", "RST on hp=…") as `tracing`
-/// warnings. Without a subscriber they are lost and all iph sees later is
+/// warnings. Without a subscriber they are lost and all phone-cli sees later is
 /// "not connected". They carry ports and byte counts, never screen contents.
-/// `IPH_LOG` takes a filter such as `iphone_cli::tcp=debug` for more.
+/// `PHONE_LOG` takes a filter such as `phone_cli::tcp=debug` for more.
 fn keep_library_warnings() {
     events::init_tracing();
 }

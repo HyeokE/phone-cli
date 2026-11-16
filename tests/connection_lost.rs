@@ -1,6 +1,6 @@
 //! A daemon accepted the request, then its reply was lost. The real CLI must
 //! return unknown without replaying input, on both sockets and named pipes.
-use iphone_cli::{daemon::Request, ipc};
+use phone_cli::{daemon::Request, ipc};
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -12,12 +12,12 @@ async fn accepted_input_is_never_replayed_after_a_lost_reply() {
     } else {
         std::env::temp_dir()
     };
-    let dir = base.join(format!("iph-lost-{id}"));
+    let dir = base.join(format!("phone-lost-{id}"));
     std::fs::create_dir_all(&dir).unwrap();
     // This test is the only test in this process. Each child gets its own
     // environment; no user daemon or phone is involved.
     unsafe {
-        std::env::set_var("IPH_STATE_DIR", &dir);
+        std::env::set_var("PHONE_STATE_DIR", &dir);
     }
     let mut listener = ipc::Listener::bind(&id).unwrap();
     let script = dir.join("input.js");
@@ -27,12 +27,14 @@ async fn accepted_input_is_never_replayed_after_a_lost_reply() {
         vec!["tap", "1,1"],
         vec!["script", script.to_str().unwrap()],
     ] {
-        let child = tokio::process::Command::new(env!("CARGO_BIN_EXE_iph"))
+        let child = tokio::process::Command::new(env!("CARGO_BIN_EXE_phone"))
             .args(["--udid", &id])
             .args(&args)
-            .env("IPH_STATE_DIR", &dir)
-            .env("IPH_CONFIG_DIR", dir.join("config"))
+            .env("PHONE_STATE_DIR", &dir)
+            .env("PHONE_CONFIG_DIR", dir.join("config"))
+            .env_remove("PHONE_TRACE")
             .env_remove("IPH_TRACE")
+            .env_remove("PHONE_LOG")
             .env_remove("IPH_LOG")
             .output();
         let accept = async {

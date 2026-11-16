@@ -1,12 +1,12 @@
-//! `iph dnd`: Do Not Disturb on the phone.
+//! `phone dnd`: Do Not Disturb on the phone.
 //!
 //! A notification banner drops over the top of the screen and takes the tap
 //! meant for whatever is under it. The accessibility tree of the app in front
 //! does not show it, so it cannot be seen coming (2026-11-10: a banner took a
-//! tap on a back button and opened another app). `iph dnd on` keeps banners
-//! away while iph works, and `iph dnd off` puts back the Focus that was on.
+//! tap on a back button and opened another app). `phone dnd on` keeps banners
+//! away while phone-cli works, and `phone dnd off` puts back the Focus that was on.
 //!
-//! No service on the phone offers this. iph does what a person does: pull
+//! No service on the phone offers this. phone-cli does what a person does: pull
 //! Control Center down, hold the Focus control, pick the mode from the list,
 //! press Home twice. Control Center belongs to SpringBoard and shows in the
 //! accessibility tree; Settings has no switch for it (iOS 27.0.1).
@@ -176,7 +176,7 @@ pub fn reached(rows: &[Row], labels: &Labels, want: &Want) -> bool {
     }
 }
 
-/// What `iph dnd on` replaced with Do Not Disturb, for `iph dnd off` to put
+/// What `phone dnd on` replaced with Do Not Disturb, for `phone dnd off` to put
 /// back. Kept in a file so that it outlives the daemon.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Record {
@@ -187,7 +187,14 @@ pub struct Record {
 
 impl Record {
     pub fn load(udid: &str) -> Option<Record> {
-        let text = std::fs::read_to_string(paths::dnd_record(udid)).ok()?;
+        let new = paths::dnd_record(udid);
+        let path = if new.exists() {
+            new
+        } else {
+            // Left by the pre-rename `iph dnd on`.
+            paths::state_file_to_read(&format!("{udid}.dnd.json"))
+        };
+        let text = std::fs::read_to_string(path).ok()?;
         serde_json::from_str(&text).ok()
     }
 
@@ -204,6 +211,9 @@ impl Record {
 
     fn clear(udid: &str) {
         let _ = std::fs::remove_file(paths::dnd_record(udid));
+        if let Some(old) = paths::legacy_state_file(&format!("{udid}.dnd.json")) {
+            let _ = std::fs::remove_file(old);
+        }
     }
 }
 
@@ -480,7 +490,7 @@ impl Session {
                 };
                 let (x, y) = row.frame.center();
                 if *want == Want::Quiet {
-                    // Written before the tap: should iph die right after it,
+                    // Written before the tap: should phone-cli die right after it,
                     // the next run still knows what to put back.
                     let record = Record { previous: active.clone(), at: now_utc() };
                     record
@@ -520,7 +530,7 @@ impl Session {
                     "changed": switch.changed,
                     "focus": switch.after,
                     "previous": self.dnd.record.as_ref().and_then(|r| r.previous.clone()),
-                    "set_by_iph": self.dnd.record.is_some(),
+                    "set_by_phone": self.dnd.record.is_some(),
                 })
             }
             "off" => {
@@ -535,7 +545,7 @@ impl Session {
                 Ok(fields! {
                     "on": switch.before.as_deref().is_some_and(|f| labels.is_mode(f)),
                     "focus": switch.before,
-                    "set_by_iph": self.dnd.record.is_some(),
+                    "set_by_phone": self.dnd.record.is_some(),
                     "previous": self.dnd.record.as_ref().and_then(|r| r.previous.clone()),
                 })
             }
@@ -690,9 +700,9 @@ mod tests {
 
     #[test]
     fn the_record_survives_a_restart() {
-        let dir = std::env::temp_dir().join(format!("iph-dnd-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("phone-dnd-test-{}", std::process::id()));
         // SAFETY: this test is the only one in this binary that reads the variable.
-        unsafe { std::env::set_var("IPH_STATE_DIR", &dir) };
+        unsafe { std::env::set_var("PHONE_STATE_DIR", &dir) };
         let record = Record { previous: Some("업무".into()), at: now_utc() };
         record.save("TEST-PHONE").unwrap();
         assert_eq!(State::load("TEST-PHONE").record, Some(record));
