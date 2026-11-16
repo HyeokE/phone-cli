@@ -94,36 +94,27 @@ cargo install --path .        # ~/.cargo/bin/iph
 
 ### Wi-Fi 준비와 문제 해결
 
-같은 Wi-Fi에 있는 것만으로는 충분하지 않습니다. 지원되는 기기는 lockdown의 `com.apple.mobile.wireless_lockdown` 도메인에서 `EnableWifiConnections`와 `EnableWifiDebugging`이 **모두 `true`**여야 무선으로 발견될 수 있습니다. 하나라도 꺼져 있으면 Bonjour의 `_apple-mobdev2._tcp.local.` 서비스를 광고하지 않아, 같은 대역에서도 usbmuxd에 `Network` 연결이 나타나지 않을 수 있습니다.
+먼저 USB로 연결해 컴퓨터를 신뢰하고, 아이폰의 잠금을 푼 채 같은 LAN에 연결하세요. 컴퓨터는 유선 LAN을 써도 됩니다. 무선 연결 설정을 켜려면 USB 연결 상태에서 실행하세요:
 
-- USB로 연결하고 잠금 해제·컴퓨터 신뢰를 확인한 뒤 `iph setup` 또는 `iph doctor`를 실행하면 `SupportsWifi`, `SupportsWifiSyncing`과 두 활성화 플래그를 읽습니다. 두 명령 모두 기본 실행에서는 무선 플래그를 변경하지 않습니다.
-- 무선 활성화를 명시적으로 요청하려면 `iph setup --fix-wifi` 또는 `iph doctor --fix-wifi`를 실행하세요 (MCP `iph_doctor`: `fix_wifi: true`). 지원 플래그 중 하나가 `true`이면, 명시적으로 `false`인 활성화 플래그만 `true`로 설정하고 다시 읽어 확인합니다. 미지원이거나 값을 확인할 수 없으면 변경하지 않습니다. doctor는 사람이 볼 때 `--human`을 붙이세요. setup은 기존의 대화형 안내 출력을 유지합니다.
-- 플래그를 켠 뒤 **같은 폰의** usbmuxd `Network` 연결이 나타나는지 최대 4초 확인합니다. 확인된 플래그 변경은 `checks[].auto_fixed`에 표시하고, 연결이 나타나지 않으면 `wifi`는 경고로 남습니다. Wi-Fi는 권장 항목이므로 USB 준비 완료를 막지 않습니다.
-- 플래그가 꺼져 있으면 doctor가 해당 이름을 알려 줍니다. 직접 설정하려면 Finder → iPhone 선택 → 'Wi-Fi에 있을 때 이 iPhone 보기'(윈도: Apple 기기 앱), Xcode → Devices and Simulators → 'Connect via network'를 확인하세요. 자동 쓰기가 거부되거나 재확인에 실패하면 `detail`에 키와 원인이 나옵니다. 신뢰·잠금 상태를 확인해 다시 시도하거나 위 설정을 사용하세요.
-- 두 플래그가 켜져 있는데 `Network`가 없다면 같은 Wi-Fi 대역인지, AP/클라이언트 격리가 꺼져 있는지, mDNS/Bonjour(`_apple-mobdev2._tcp.local.`)가 차단되는지 확인하세요. 설정 직후에는 잠시 뒤 doctor를 다시 실행하세요. 플래그 읽기 실패나 usbmuxd 조회 실패는 꺼진 플래그·네트워크 문제로 단정하지 않고 따로 표시합니다.
+```sh
+iph doctor --fix-wifi
+```
+
+그래도 폰이 검색되지 않으면 아래 방법으로 IP를 등록할 수 있습니다. [무선 설정 상세](docs/onboarding.md#wi-fi-연결).
 
 **알림 배너는 화면 위쪽 탭을 가로챕니다.** 배너는 화면 위쪽을 덮고 접근성 트리에는 나오지 않습니다. 그때 화면 위쪽을 누르면 배너가 눌려 다른 앱이 열립니다 (만드는 동안 실제로 한 번 겪었습니다). 오래 맡길 때는 `iph dnd on`으로 방해금지 모드를 켜 두고, 끝나면 `iph dnd off`로 되돌리세요. 자세한 내용은 아래 [방해금지 모드](#방해금지-모드).
 
 ### 자동 검색에 실패할 때 IP 직접 연결
 
-PC는 유선 LAN, 아이폰은 같은 LAN의 Wi-Fi에 연결되어 있어도 됩니다. PC에 Wi-Fi 어댑터가 필요하지 않습니다. 일부 Windows 환경에서는 신뢰한 아이폰에 직접 접속할 수 있어도 Apple 서비스에 Wi-Fi 기기가 나타나지 않습니다([이슈 #2](https://github.com/HyunSeob/iphone-cli/issues/2)). 이때 직접 주소를 등록합니다.
+USB로 신뢰한 폰이 검색되지 않으면 설정 → Wi-Fi → 네트워크 정보의 IP를 등록하세요:
 
 ```sh
 iph devices                                      # USB 연결 상태에서 UDID 확인
 iph --udid <UDID> connect --ip <아이폰-IP>          # USB를 뺀 뒤 실행
-iph --udid <UDID> devices
 iph --udid <UDID> read
 ```
 
-아이폰 설정 → Wi-Fi → 연결한 네트워크의 정보 버튼에서 IPv4 주소를 확인하세요. IPv6 주소도 사용할 수 있습니다. 링크 로컬 IPv6에는 컴퓨터의 숫자 인터페이스 인덱스가 필요합니다(예: `fe80::1234%12`). 이 컴퓨터에서 USB로 신뢰한 기록과 Apple 기기 연결 서비스가 필요합니다. `connect`는 페어링 세션에서 읽은 UDID가 선택한 폰과 일치할 때만 주소를 저장합니다. 검증에 실패하면 이전 주소를 유지합니다. 등록에 성공하면 기존 상주 프로세스를 종료해 다음 명령이 새 연결을 엽니다.
-
-모든 Wi-Fi 연결은 Apple 기기 목록에서 얻은 주소든 저장한 IP든 직접 TCP를 사용합니다. Apple 서비스는 USB 전송·주소 발견·페어링 기록 제공에 사용하고, Wi-Fi 세션의 전송은 맡기지 않습니다. iph가 페어링된 기기 식별과 heartbeat 응답을 담당합니다. 기기 목록 조회가 실패해도 선택한 폰의 저장 주소를 시도하지만, 페어링 서비스를 사용할 수 없으면 인증할 수 없습니다.
-
-`address_saved: true`·`udid_verified: true`는 주소 등록 확인이며 개발자 서비스 준비 완료를 뜻하지 않습니다. `devices`는 선택한 저장 주소를 `source: "cached_wifi_address"`, `listed_by_usbmuxd: false`로 표시하고, 페어링 세션의 기기 식별까지 확인한 뒤 `ready: true`를 보고합니다. 준비 상태는 `doctor`로 검사할 수 있으며, 무선 발견 항목은 Apple 서비스의 목록이 복구됐다고 표시하지 않습니다. USB를 연결하면 기존처럼 USB가 우선이며, `IPH_PREFER=wifi`를 설정하면 발견되거나 저장된 Wi-Fi 주소를 우선합니다. 명령을 보내기 전 연결 준비 단계에서만 다른 주소나 USB를 시도합니다. heartbeat가 끝나면 이전 터널을 폐기하고 다음 요청에서 다시 연결하며, 결과가 불명확한 입력을 재전송하지 않습니다. `devices`의 `transport`는 Wi-Fi에 `"tcp"`, USB에 `"usbmuxd"`를 표시하며 발견 조회 오류·잘못된 목록 항목 경고를 별도로 보고합니다.
-
-이후 CLI·MCP·스크립트는 같은 저장 주소를 사용합니다. `--udid`·`IPH_UDID`·설정 파일의 `udid`로 같은 폰을 선택하세요. 선택하지 않은 저장 주소를 자동으로 고르지는 않습니다. MCP에서는 선택한 폰에 `iph_connect`를 `{"ip":"192.168.1.20"}`로 호출할 수도 있습니다. DHCP로 아이폰의 IP가 바뀌면 새 주소로 `connect`를 다시 실행하세요. 이 경로는 LAN 전체를 검색하거나 멀티캐스트 발견에 의존하지 않습니다.
-
-자동 검색을 쓰려면 이슈 #2에 보고된 선택 사항인 [netmuxd](https://github.com/jkcoxson/netmuxd) 0.4.3 우회도 있습니다. 별도 로컬 포트에 `--plist-storage`로 Apple 페어링 폴더를 지정하고 `--upstream-usbmuxd 127.0.0.1:27015`로 기존 Apple 서비스를 연결한 뒤, `USBMUXD_SOCKET_ADDRESS`를 그 포트로 지정합니다. 이 방법의 자동 검색은 PC에 mDNS가 도달해야 동작합니다.
+Apple 기기 연결 서비스가 필요합니다. CLI·MCP·스크립트는 선택한 UDID의 저장 주소를 공유하며, IP가 바뀌면 다시 등록하세요. [직접 연결 상세](docs/onboarding.md#ip-직접-연결).
 
 ## 명령
 

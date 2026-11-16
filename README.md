@@ -91,36 +91,27 @@ Setup requirements and how to interpret the checks are in [docs/onboarding.md](d
 
 ### Wi-Fi setup and troubleshooting
 
-The same Wi-Fi alone is not enough. On supported devices, `EnableWifiConnections` **and** `EnableWifiDebugging` in lockdown's `com.apple.mobile.wireless_lockdown` domain need to be `true` for wireless discovery. With either disabled, the phone may not advertise Bonjour's `_apple-mobdev2._tcp.local.` service, so usbmuxd has no `Network` entry even on the same subnet.
+Pair by USB first, then keep the iPhone unlocked on the same LAN. The computer may use Ethernet. To enable wireless connections, run this while USB is attached:
 
-- Connect by USB, unlock and trust the computer, then run `iph setup` or `iph doctor` to read `SupportsWifi`, `SupportsWifiSyncing` and both enable flags. Both commands leave wireless flags unchanged by default.
-- To explicitly enable wireless setup, run `iph setup --fix-wifi` or `iph doctor --fix-wifi` (`iph_doctor` MCP: `fix_wifi: true`). If either support flag is `true`, only enable flags explicitly reported as `false` are set to `true` and read back. Unsupported or unknown values are not changed. Add `--human` to doctor for terminal output; setup keeps its interactive, human-readable output.
-- After enabling the flags, setup briefly checks (up to 4 seconds) for the **same phone's** usbmuxd `Network` entry. `checks[].auto_fixed` records confirmed flag changes; `wifi` remains a warning until the network entry appears. Wi-Fi is optional, so that warning does not prevent USB readiness.
-- If flags are off, doctor names them. Manual alternatives are Finder → select iPhone → “Show this iPhone when on Wi-Fi” (Apple Devices on Windows), and Xcode → Devices and Simulators → “Connect via network”. If an automatic write is rejected or cannot be verified, `detail` contains the key and error; check trust/unlock and retry, or use those controls.
-- If both flags are on but `Network` is absent, check the same Wi-Fi subnet, AP/client isolation and blocked mDNS/Bonjour (`_apple-mobdev2._tcp.local.`). Run doctor again after a short wait. Unreadable flags and failed usbmuxd queries are reported separately rather than assumed to mean disabled flags or a subnet problem.
+```sh
+iph doctor --fix-wifi
+```
+
+If the phone is still not discovered, register its IP below. [Wireless setup details](docs/onboarding.md#wi-fi-연결) (Korean).
 
 **Notification banners take taps near the top of the screen.** Banners cover the top of the screen and are not part of the accessibility tree. A tap near the top then lands on the banner and opens another app (this happened once during development). For long unattended work turn Do Not Disturb on with `iph dnd on`, and put it back with `iph dnd off` afterwards. Details: [Do Not Disturb](#do-not-disturb) below.
 
 ### Direct IP when automatic discovery fails
 
-The PC may use Ethernet while the iPhone uses Wi-Fi on the same LAN; the PC does not need a Wi-Fi adapter. On some Windows installations, Apple's service has no Wi-Fi entry even though the paired phone is reachable ([issue #2](https://github.com/HyunSeob/iphone-cli/issues/2)). Register a direct address:
+For a USB-trusted phone missing from discovery, use the IP shown in Settings → Wi-Fi → the network's info button:
 
 ```sh
 iph devices                                      # while USB is attached: note the UDID
 iph --udid <UDID> connect --ip <iPhone-IP>         # after unplugging USB
-iph --udid <UDID> devices
 iph --udid <UDID> read
 ```
 
-Find the phone's IP in Settings → Wi-Fi → the network's info button. Use IPv4 or IPv6; a link-local IPv6 address needs the computer's numeric interface index (for example `fe80::1234%12`). USB trust on this computer and the Apple device service are still required. `connect` starts a paired session, reads the reported UDID, and saves the address only when it matches the selected phone. A failed check preserves the previous address. A successful registration stops an existing daemon so the next command opens a fresh connection.
-
-All Wi-Fi connections use direct TCP, whether the address comes from Apple's device list or a saved IP. Apple's service supplies USB transport, discovery hints and pairing records; it no longer transports Wi-Fi sessions. iph verifies the paired identity and answers heartbeat messages itself. A failed device-list query does not block a selected phone's saved address, although an unavailable pairing service still blocks authentication.
-
-`address_saved: true` and `udid_verified: true` confirm address registration, not developer-service readiness. `devices` includes the selected saved-address candidate with `source: "cached_wifi_address"` and `listed_by_usbmuxd: false`; it checks the paired identity before reporting `ready: true`. `doctor` can still check the required services; its wireless discovery check does not claim that Apple's missing entry was repaired. USB remains preferred when attached; `IPH_PREFER=wifi` prefers discovered or saved Wi-Fi candidates. Connection setup may try another address or USB before sending a command. When a heartbeat ends, iph discards the old tunnel and reconnects on the next request; it never replays input whose outcome is unknown. `devices` reports `transport: "tcp"` for Wi-Fi and `transport: "usbmuxd"` for USB, with discovery errors and malformed-entry warnings reported separately.
-
-Subsequent CLI calls, MCP tools and scripts share this address. Keep the same `--udid`, `IPH_UDID`, or configured `udid`; unselected saved addresses are not automatically chosen. MCP also offers `iph_connect` with `{"ip":"192.168.1.20"}` for its selected phone. If DHCP changes the phone's address, run `connect` with the new address. This path does not scan the LAN or depend on multicast discovery.
-
-For automatic discovery, issue #2 also describes the optional [netmuxd](https://github.com/jkcoxson/netmuxd) 0.4.3 workaround: run it on a separate local port with `--plist-storage` pointing to Apple's pairing directory and `--upstream-usbmuxd 127.0.0.1:27015`, then point `USBMUXD_SOCKET_ADDRESS` to that port. Its discovery still depends on mDNS reaching the PC.
+The Apple device service is still required. CLI, MCP and scripts share the saved address for the selected UDID; register it again if the IP changes. [Connection details](docs/onboarding.md#ip-직접-연결) (Korean).
 
 ## Commands
 
