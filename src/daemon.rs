@@ -18,8 +18,8 @@ use tokio::{
 
 use crate::{
     actions::parse_args,
-    config::Config,
     android::session::AndroidSession,
+    config::Config,
     device::session::Session,
     doctor, events, fields, ipc, paths,
     platform::{self, Device, Phone, Platform},
@@ -66,8 +66,22 @@ async fn dispatch(device: &mut Device, cmd: &str, args: &Value) -> Res {
     }
 }
 
-/// The commands on an Android phone: the same names, arguments and results.
+/// The commands on an Android phone: the same names, arguments and results,
+/// plus `backend`: whether the helper or adb's tools served the command.
 async fn dispatch_android(a: &mut AndroidSession, cmd: &str, args: &Value) -> Res {
+    a.begin_command();
+    let mut result = Box::pin(dispatch_android_command(a, cmd, args)).await;
+    if let Some(backend) = a.backend() {
+        let out = match &mut result {
+            Ok(out) => out,
+            Err(fail) => &mut fail.extra,
+        };
+        out.insert("backend".into(), json!(backend));
+    }
+    result
+}
+
+async fn dispatch_android_command(a: &mut AndroidSession, cmd: &str, args: &Value) -> Res {
     match cmd {
         "read" => Box::pin(a.cmd_read(parse_args(args)?)).await,
         "find" => Box::pin(a.cmd_find(parse_args(args)?)).await,
@@ -94,6 +108,7 @@ async fn dispatch_android(a: &mut AndroidSession, cmd: &str, args: &Value) -> Re
             "udid": a.serial.clone(),
             "platform": "android",
             "connection": a.connection(),
+            "helper": a.helper_status(),
             "pid": std::process::id(),
             "build": build_stamp(),
         }),
@@ -187,7 +202,9 @@ async fn handle(stream: ipc::Stream, shared: Arc<Shared>) -> Result<()> {
     *shared.last_request.lock().unwrap() = Instant::now();
 
     let reply = match req.cmd.as_str() {
-        "ping" => json!({ "ok": true, "build": shared.build, "pid": std::process::id(), "udid": shared.udid }),
+        "ping" => {
+            json!({ "ok": true, "build": shared.build, "pid": std::process::id(), "udid": shared.udid })
+        }
         "shutdown" => {
             log("shutdown requested");
             let mut session = shared.session.lock().await;
@@ -200,11 +217,19 @@ async fn handle(stream: ipc::Stream, shared: Arc<Shared>) -> Result<()> {
             std::process::exit(0);
         }
         _ if req.build != shared.build => envelope(
-            Err(Fail::not_sent("daemon_outdated", "the daemon runs an older build")),
+            Err(Fail::not_sent(
+                "daemon_outdated",
+                "the daemon runs an older build",
+            )),
             started,
         ),
         cmd => {
-            events::record("daemon.command", "started", 0, json!({ "udid": shared.udid, "command": cmd }));
+            events::record(
+                "daemon.command",
+                "started",
+                0,
+                json!({ "udid": shared.udid, "command": cmd }),
+            );
             let mut session = shared.session.lock().await;
             let work = Box::pin(dispatch(&mut session, cmd, &req.args));
             let result = match tokio::time::timeout(budget(cmd), work).await {
@@ -225,8 +250,12 @@ async fn handle(stream: ipc::Stream, shared: Arc<Shared>) -> Result<()> {
             if let Err(f) = &result {
                 log(&format!("{cmd} -> {} {}", f.outcome.as_str(), f.code));
             }
-            events::record("daemon.command", if result.is_ok() { "ok" } else { "error" }, started.elapsed().as_millis(),
-                json!({ "udid": shared.udid, "command": cmd, "error": result.as_ref().err().map(|f| f.error_json()) }));
+            events::record(
+                "daemon.command",
+                if result.is_ok() { "ok" } else { "error" },
+                started.elapsed().as_millis(),
+                json!({ "udid": shared.udid, "command": cmd, "error": result.as_ref().err().map(|f| f.error_json()) }),
+            );
             let reply = envelope(result, started);
             session.close_input_if_unheld().await;
             session.sweep().await;
@@ -271,7 +300,11 @@ pub async fn run(udid: String) -> Result<()> {
         build: build_stamp(),
         udid: udid.clone(),
     });
-    log(&format!("daemon for {udid} ({}) listening, build {}", kind.as_str(), shared.build));
+    log(&format!(
+        "daemon for {udid} ({}) listening, build {}",
+        kind.as_str(),
+        shared.build
+    ));
 
     // Requests run one at a time, so everything stays on this thread: the
     // device futures need not be `Send`.

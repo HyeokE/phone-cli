@@ -31,9 +31,10 @@ This is a real phone with the user's accounts on it. A tap cannot be taken back,
 The same commands and JSON work on an Android phone through adb; select it by its adb serial (`--udid R39N402N5SB`, `--udid 192.168.0.7:5555`). `phone devices` shows `platform: "android"`; one phone over USB and Wi-Fi appears twice with `same_device_as`, so use one serial for the whole task.
 
 - **Back:** `phone button back` (MCP `phone_button` `"back"`) is the usual way out of a screen; `home`, `recents` and `lock` exist too.
-- **Text limits:** `phone type` sends printable ASCII only. Korean, emoji or accents come back `not_sent` / `unsupported_text` and nothing is typed; tell the user instead of trying another way. Send line breaks with `phone key return`. An empty field's `value` may be its placeholder (`value_before: "Search"`), so judge from `value` after typing.
-- **Pace:** a reading takes 2.3 to 2.5 s (uiautomator waits for the screen to settle), a tap with its check about 3 s. Prefer scripts for multi-step work.
-- **Apps:** launch by package (`com.android.settings`); `phone apps` has no display names. `phone dnd` is not available on Android.
+- **Helper:** results carry `backend: "helper"` (fast path: a small helper phone-cli runs from `/data/local/tmp`, no app installed) or `"adb"` (shell tools, used when the helper is off or down). Both give the same JSON.
+- **Text:** with the helper, `phone type` pastes any text, Korean and emoji included, and restores the clipboard. On the `adb` backend it sends printable ASCII only; Korean, emoji or accents come back `not_sent` / `unsupported_text` and nothing is typed; tell the user instead of trying another way. Send line breaks with `phone key return`. An empty field's `value` may be its placeholder (`value_before: "Search"`), so judge from `value` after typing.
+- **Pace:** with the helper a reading takes tens of ms and a tap with its check about 0.7 s; on the `adb` backend a reading takes 2.3 to 2.5 s and a tap about 3 s. Prefer scripts for multi-step work either way.
+- **Apps:** launch by package (`com.android.settings`); `phone apps` shows launcher names when the helper runs (`name: null` on the `adb` backend). `phone dnd` is not available on Android.
 
 ## Outcomes
 

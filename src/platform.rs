@@ -18,8 +18,8 @@ use serde_json::Value;
 
 use crate::{
     actions::{
-        ButtonArgs, FindArgs, KeyArgs, LaunchArgs, ReadArgs, ScreenshotArgs, ScrollArgs, SwipeArgs, TapArgs,
-        TypeArgs,
+        ButtonArgs, FindArgs, KeyArgs, LaunchArgs, ReadArgs, ScreenshotArgs, ScrollArgs, SwipeArgs,
+        TapArgs, TypeArgs,
     },
     android::session::AndroidSession,
     ax::tree::{BuildOptions, Screen},
@@ -221,8 +221,9 @@ impl Device {
     }
 
     pub async fn shutdown(&mut self) {
-        if let Device::Ios(s) = self {
-            s.shutdown().await;
+        match self {
+            Device::Ios(s) => s.shutdown().await,
+            Device::Android(a) => a.shutdown().await,
         }
     }
 
@@ -252,8 +253,15 @@ mod tests {
     #[test]
     fn iphone_udids_are_told_from_adb_serials() {
         assert!(looks_like_ios_udid("00008130-001A2B3C4D5E6F70"));
-        assert!(looks_like_ios_udid("0123456789abcdef0123456789abcdef01234567"));
-        for serial in ["R39N402N5SB", "emulator-5554", "192.168.0.5:5555", "adb-R39N402N5SB-abc._adb-tls-connect._tcp"] {
+        assert!(looks_like_ios_udid(
+            "0123456789abcdef0123456789abcdef01234567"
+        ));
+        for serial in [
+            "R39N402N5SB",
+            "emulator-5554",
+            "192.168.0.5:5555",
+            "adb-R39N402N5SB-abc._adb-tls-connect._tcp",
+        ] {
             assert!(!looks_like_ios_udid(serial), "{serial}");
         }
     }

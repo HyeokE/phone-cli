@@ -28,7 +28,11 @@ pub fn adb_path() -> Option<PathBuf> {
     }
     let mut roots: Vec<PathBuf> = ["ANDROID_HOME", "ANDROID_SDK_ROOT"]
         .iter()
-        .filter_map(|k| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from))
+        .filter_map(|k| {
+            std::env::var_os(k)
+                .filter(|v| !v.is_empty())
+                .map(PathBuf::from)
+        })
         .collect();
     if let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) {
         let home = PathBuf::from(home);
@@ -85,7 +89,9 @@ impl AdbError {
     pub fn input(&self) -> Fail {
         match self {
             AdbError::Missing => missing_adb(),
-            AdbError::Unreachable(_) => Fail::not_sent("device_unreachable", self.message()).hint(unreachable_hint()),
+            AdbError::Unreachable(_) => {
+                Fail::not_sent("device_unreachable", self.message()).hint(unreachable_hint())
+            }
             _ => Fail::unknown("input_failed", self.message()).hint(t(
                 "입력이 나갔을 수 있습니다. 다시 보내지 말고 `phone read`로 화면을 확인하세요.",
                 "The input may have gone out. Do not resend; check the screen with `phone read`.",
@@ -112,13 +118,25 @@ fn unreachable_hint() -> &'static str {
 fn unreachable(stderr: &str) -> bool {
     // adb prefixes its own complaints with "error:"; the phone's shell does not.
     let s = stderr.to_lowercase();
-    let Some(first) = s.lines().next().filter(|l| l.starts_with("error:") || l.starts_with("adb: error")) else {
+    let Some(first) = s
+        .lines()
+        .next()
+        .filter(|l| l.starts_with("error:") || l.starts_with("adb: error"))
+    else {
         return false;
     };
     (first.contains("device '") && first.contains("not found"))
-        || ["no devices", "unauthorized", "device offline", "more than one device", "cannot connect", "failed to connect", "no emulators"]
-            .iter()
-            .any(|n| first.contains(n))
+        || [
+            "no devices",
+            "unauthorized",
+            "device offline",
+            "more than one device",
+            "cannot connect",
+            "failed to connect",
+            "no emulators",
+        ]
+        .iter()
+        .any(|n| first.contains(n))
 }
 
 /// Run adb with `args` and return stdout. `serial` selects the device.
@@ -128,11 +146,24 @@ pub async fn run(serial: Option<&str>, args: &[&str], secs: u64) -> Result<Vec<u
     if let Some(s) = serial {
         cmd.arg("-s").arg(s);
     }
-    cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).kill_on_drop(true);
-    let child = cmd.spawn().map_err(|e| AdbError::Failed { code: None, message: format!("cannot run adb: {e}") })?;
-    let out = match tokio::time::timeout(Duration::from_secs(secs), child.wait_with_output()).await {
+    cmd.args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let child = cmd.spawn().map_err(|e| AdbError::Failed {
+        code: None,
+        message: format!("cannot run adb: {e}"),
+    })?;
+    let out = match tokio::time::timeout(Duration::from_secs(secs), child.wait_with_output()).await
+    {
         Ok(Ok(o)) => o,
-        Ok(Err(e)) => return Err(AdbError::Failed { code: None, message: format!("adb: {e}") }),
+        Ok(Err(e)) => {
+            return Err(AdbError::Failed {
+                code: None,
+                message: format!("adb: {e}"),
+            });
+        }
         Err(_) => return Err(AdbError::Timeout(secs)),
     };
     if out.status.success() {
@@ -140,11 +171,18 @@ pub async fn run(serial: Option<&str>, args: &[&str], secs: u64) -> Result<Vec<u
     }
     let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
     let stdout = String::from_utf8_lossy(&out.stdout);
-    let message = if stderr.is_empty() { stdout.trim().chars().take(400).collect() } else { stderr.clone() };
+    let message = if stderr.is_empty() {
+        stdout.trim().chars().take(400).collect()
+    } else {
+        stderr.clone()
+    };
     if unreachable(&stderr) {
         return Err(AdbError::Unreachable(message));
     }
-    Err(AdbError::Failed { code: out.status.code(), message })
+    Err(AdbError::Failed {
+        code: out.status.code(),
+        message,
+    })
 }
 
 /// One device as `adb devices -l` lists it.
@@ -166,11 +204,17 @@ pub fn parse_devices(text: &str) -> Vec<AdbDevice> {
     let mut out = Vec::new();
     for line in text.lines() {
         let line = line.trim();
-        if line.is_empty() || line.starts_with("List of devices") || line.starts_with('*') || line.starts_with("adb ") {
+        if line.is_empty()
+            || line.starts_with("List of devices")
+            || line.starts_with('*')
+            || line.starts_with("adb ")
+        {
             continue;
         }
         let mut parts = line.split_whitespace();
-        let (Some(serial), Some(state)) = (parts.next(), parts.next()) else { continue };
+        let (Some(serial), Some(state)) = (parts.next(), parts.next()) else {
+            continue;
+        };
         // "no permissions (…)" and the like take several words.
         let mut state = state.to_string();
         let mut usb = None;
@@ -225,7 +269,10 @@ pub async fn list_devices() -> Result<Vec<AdbDevice>, AdbError> {
 
 /// Quote one word for the phone's `sh`.
 pub fn sh_quote(s: &str) -> String {
-    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "._-/:=@%+,".contains(c)) {
+    if !s.is_empty()
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-/:=@%+,".contains(c))
+    {
         return s.to_string();
     }
     format!("'{}'", s.replace('\'', r"'\''"))
@@ -239,7 +286,9 @@ pub struct Adb {
 
 impl Adb {
     pub fn new(serial: impl Into<String>) -> Self {
-        Self { serial: serial.into() }
+        Self {
+            serial: serial.into(),
+        }
     }
 
     /// `adb exec-out <cmd>`: raw bytes, no terminal translation.
@@ -254,7 +303,10 @@ impl Adb {
     }
 
     pub async fn getprop(&self, key: &str) -> Option<String> {
-        let v = self.shell(&format!("getprop {}", sh_quote(key)), 8).await.ok()?;
+        let v = self
+            .shell(&format!("getprop {}", sh_quote(key)), 8)
+            .await
+            .ok()?;
         let v = v.trim();
         (!v.is_empty()).then(|| v.to_string())
     }
@@ -282,7 +334,11 @@ mod tests {
         assert_eq!(list[1].transport_id.as_deref(), Some("5"));
         assert_eq!(list[2].connection, "emulator");
         assert_eq!(list[3].state, "unauthorized");
-        assert!(list[4].state.starts_with("no permissions"), "{}", list[4].state);
+        assert!(
+            list[4].state.starts_with("no permissions"),
+            "{}",
+            list[4].state
+        );
         assert_eq!(list[4].connection, "usb");
         assert!(parse_devices("* daemon not running; starting now at tcp:5037\n* daemon started successfully\nList of devices attached\n\n").is_empty());
     }
@@ -299,7 +355,9 @@ mod tests {
     #[test]
     fn adb_reports_a_missing_device_as_unreachable() {
         assert!(unreachable("error: device 'XYZ' not found"));
-        assert!(unreachable("error: device unauthorized.\nThis adb server's $ADB_VENDOR_KEYS is not set"));
+        assert!(unreachable(
+            "error: device unauthorized.\nThis adb server's $ADB_VENDOR_KEYS is not set"
+        ));
         assert!(unreachable("error: device offline"));
         assert!(!unreachable("Error: could not get idle state."));
     }

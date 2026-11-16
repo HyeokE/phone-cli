@@ -126,7 +126,7 @@ Wi-Fi heartbeat의 종료·SleepyTime·응답 시간 초과를 관측하면 캐�
 
 ## 8. 안드로이드
 
-안드로이드 폰은 `adb` 한 가지 경로로 다룹니다. 폰에는 아무것도 설치하지 않으며, 연결을 붙잡아 두지 않고 명령마다 `adb` 프로세스를 하나씩 띄웁니다. 상주 프로세스는 아이폰과 같은 소켓·요청 형식을 쓰고(기기 id는 adb serial), 요청을 차례대로 처리해 기기별 순서가 유지됩니다. 시작할 때 id가 아이폰 UDID 모양(16진수 40자리, 또는 8-16자리)이면 adb를 부르지 않고 아이폰으로, 아니면 `adb devices`에 있을 때 안드로이드로 정합니다.
+안드로이드 폰은 `adb`로 다룹니다. 앱은 설치하지 않습니다. 기본은 아래 '도우미'이고, 이 절의 나머지는 도우미가 없을 때 쓰는 셸 도구 경로입니다. 셸 도구 경로는 연결을 붙잡아 두지 않고 명령마다 `adb` 프로세스를 하나씩 띄웁니다. 상주 프로세스는 아이폰과 같은 소켓·요청 형식을 쓰고(기기 id는 adb serial), 요청을 차례대로 처리해 기기별 순서가 유지됩니다. 시작할 때 id가 아이폰 UDID 모양(16진수 40자리, 또는 8-16자리)이면 adb를 부르지 않고 아이폰으로, 아니면 `adb devices`에 있을 때 안드로이드로 정합니다.
 
 - **추상화:** `batch` 단계와 스크립트는 `Phone` 트레이트(`src/platform.rs`)만 보고 동작합니다. 아이폰의 `Session`은 모든 호출을 기존 메서드에 그대로 넘기므로 iOS 경로의 동작은 바뀌지 않습니다. 안드로이드 구현은 `src/android/`에 있습니다.
 - **읽기:** `adb exec-out uiautomator dump /dev/tty`, XML이 나오지 않으면 `/data/local/tmp`의 파일로 덤프한 뒤 `cat`하고 지웁니다. 덤프는 UI가 멈출 때(idle)까지 기다린 뒤 나오므로 한 번에 2.3~2.5초가 걸리고, 그 대신 입력 뒤 한 번 읽으면 멈춘 화면입니다. 화면 크기는 `wm size`(override 우선), 배율은 `wm density / 160`이며 처음 한 번 읽어 둡니다. 앞에 있는 앱은 덤프의 첫 `package`이고, pid는 `pidof`로 한 번 찾아 실행(`launch`) 전까지 기억합니다.
@@ -135,4 +135,14 @@ Wi-Fi heartbeat의 종료·SleepyTime·응답 시간 초과를 관측하면 캐�
 - **글 입력:** `input text`는 출력 가능한 ASCII만 정확히 입력하므로 그 밖의 글자는 보내지 않고 `unsupported_text`로 돌려줍니다. 공백은 `%s`로 바꾸고 셸 따옴표로 감쌉니다. 클립보드 붙여넣기는 시험한 Android 13에 셸 클립보드 명령(`cmd clipboard`)이 없어 구현하지 않았습니다.
 - **앱:** 실행은 `cmd package resolve-activity`로 런처 액티비티를 찾아 `am start -a MAIN -c LAUNCHER -n <패키지/액티비티>`, `--restart`는 그 앞에 `am force-stop`입니다. 목록은 `cmd package query-activities`(런처 앱)와 `pm list packages -3`(사용자 설치 앱)을 합칩니다.
 
-구현: [platform.rs](../src/platform.rs), [android/session.rs](../src/android/session.rs), [android/uia.rs](../src/android/uia.rs), [android/adb.rs](../src/android/adb.rs).
+### 도우미(helper)
+
+기본으로는 셸 도구 대신 도우미를 씁니다. `android-helper/`의 자바 코드를 `scripts/build-android-helper.sh`가 javac + d8로 `phone-helper.jar`로 만들고(두 번 빌드해 같은지 확인), 이 jar와 sha256을 저장소에 넣어 바이너리에 내장합니다. 사용자는 자바가 필요 없습니다.
+
+- **실행:** 폰의 `/data/local/tmp/phone-helper.jar` 해시가 다르면 올리고, `CLASSPATH=… app_process / --nice-name=phone-helper dev.phonecli.helper.Main`을 `adb shell`로 띄웁니다. 표준 입출력으로 `PH` 머리말 + 길이 + JSON 프레임을 주고받고, 처음에 버전·SDK·가능한 기능(snapshot, inject, clipboard, labels)을 알리는 hello를 받습니다. 상주 프로세스가 기기마다 하나를 띄워 둡니다.
+- **남은 도우미 정리:** UiAutomation 연결은 한 번에 하나만 등록되므로 남은 도우미가 있으면 새 도우미의 읽기와 `uiautomator dump`가 모두 실패합니다(`Killed`). 그래서 새로 띄우기 전, 도우미를 내릴 때(`phone stop`, 고장으로 내릴 때), 셸 도구의 덤프가 처음 실패했을 때 폰의 `phone-helper` 프로세스를 끝냅니다. toybox의 `pkill -x`는 `--nice-name`으로 정한 이름과 맞지 않고(Android 13에서 확인) `pkill -f`는 실행 중인 셸까지 끝내므로, `ps -A -o PID=,NAME=`에서 이름이 같은 pid를 골라 `kill`합니다. 로컬 `adb shell`을 끝내는 것만으로는 폰의 프로세스가 끝나지 않을 수 있어 pid로도 끝냅니다.
+- **읽기:** UiAutomation으로 창 트리를 읽어 `uiautomator dump`와 같은 필드로 돌려주고, `uia.rs`가 같은 `Screen`으로 바꿉니다. 짧은 시간 UI가 조용하면 읽고, 영역은 `uiautomator`처럼 앱 영역(내비게이션 바 위)으로 자릅니다.
+- **입력:** 터치·키는 `InputManager.injectInputEvent`로 넣습니다. 글은 클립보드에 넣고 붙여 넣은 뒤 칸에 보일 때까지 기다리고, 원래 클립보드를 되돌립니다.
+- **전환:** 도우미가 시작하지 못하거나 호출이 도우미를 망가뜨리면 내리고, 실패 횟수에 따라 기다린 뒤 다시 시도합니다. 그동안과 `[android] helper = false` / `PHONE_ANDROID_HELPER=0`일 때는 위의 셸 도구를 씁니다. 결과의 `backend`가 `helper` / `adb`를 알려 줍니다. 도우미가 입력을 받은 뒤 실패하면 다시 보내지 않고 `unknown`입니다.
+
+구현: [platform.rs](../src/platform.rs), [android/session.rs](../src/android/session.rs), [android/helper.rs](../src/android/helper.rs), [android/uia.rs](../src/android/uia.rs), [android/adb.rs](../src/android/adb.rs), [android-helper/](../android-helper/).

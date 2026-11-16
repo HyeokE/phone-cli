@@ -14,7 +14,10 @@ pub struct Props {
 }
 
 pub fn parse_props(out: &str) -> Props {
-    let mut lines = out.lines().map(|l| l.trim()).map(|l| (!l.is_empty()).then(|| l.to_string()));
+    let mut lines = out
+        .lines()
+        .map(|l| l.trim())
+        .map(|l| (!l.is_empty()).then(|| l.to_string()));
     Props {
         serial_number: lines.next().flatten(),
         model: lines.next().flatten(),
@@ -62,7 +65,10 @@ pub fn entry(d: &AdbDevice, p: Option<&Props>, selected: bool) -> Value {
 /// Mark entries that are the same phone reached two ways (USB and Wi-Fi
 /// show one phone under two serials; `ro.serialno` is the phone's own).
 pub fn mark_same_device(entries: &mut [Value]) {
-    let keys: Vec<Option<String>> = entries.iter().map(|e| e["serial_number"].as_str().map(String::from)).collect();
+    let keys: Vec<Option<String>> = entries
+        .iter()
+        .map(|e| e["serial_number"].as_str().map(String::from))
+        .collect();
     for i in 0..entries.len() {
         let Some(k) = &keys[i] else { continue };
         let others: Vec<Value> = (0..entries.len())
@@ -84,7 +90,11 @@ pub async fn entries(chosen: Option<&str>) -> (Vec<Value>, Option<String>) {
     };
     let mut out = Vec::new();
     for d in &list {
-        let p = if d.state == "device" { props(&d.serial).await } else { None };
+        let p = if d.state == "device" {
+            props(&d.serial).await
+        } else {
+            None
+        };
         out.push(entry(d, p.as_ref(), chosen.is_none_or(|c| c == d.serial)));
     }
     mark_same_device(&mut out);
@@ -94,7 +104,9 @@ pub async fn entries(chosen: Option<&str>) -> (Vec<Value>, Option<String>) {
 /// Serials of ready phones, one per phone: when USB and Wi-Fi reach the
 /// same phone, the USB serial.
 pub async fn usable() -> Vec<AdbDevice> {
-    let Ok(list) = adb::list_devices().await else { return Vec::new() };
+    let Ok(list) = adb::list_devices().await else {
+        return Vec::new();
+    };
     let mut picked: Vec<(AdbDevice, Option<String>)> = Vec::new();
     for d in list.into_iter().filter(|d| d.state == "device") {
         let sn = props(&d.serial).await.and_then(|p| p.serial_number);

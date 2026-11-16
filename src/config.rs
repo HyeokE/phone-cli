@@ -12,6 +12,25 @@ pub struct Config {
     pub dnd: DndConfig,
     pub daemon: DaemonConfig,
     pub script: ScriptConfig,
+    pub android: AndroidConfig,
+}
+
+/// Android phones.
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+#[serde(default)]
+pub struct AndroidConfig {
+    /// Run phone-cli's helper on the phone (pushed to /data/local/tmp and
+    /// started with app_process; no app is installed) for fast readings,
+    /// fast input and Korean/emoji typing. Off, or when it cannot run, the
+    /// adb tools (`uiautomator dump`, `input`) are used. `PHONE_ANDROID_HELPER=0`
+    /// turns it off for a daemon started with it set.
+    pub helper: bool,
+}
+
+impl Default for AndroidConfig {
+    fn default() -> Self {
+        Self { helper: true }
+    }
 }
 
 /// Limits for `phone script` and `phone run`.
@@ -26,7 +45,10 @@ pub struct ScriptConfig {
 
 impl Default for ScriptConfig {
     fn default() -> Self {
-        Self { timeout_secs: 300, memory_mb: 64 }
+        Self {
+            timeout_secs: 300,
+            memory_mb: 64,
+        }
     }
 }
 
@@ -74,8 +96,9 @@ impl Config {
     pub fn load() -> anyhow::Result<Config> {
         let path = paths::config_file();
         match std::fs::read_to_string(&path) {
-            Ok(text) => toml::from_str(&text)
-                .map_err(|e| anyhow::anyhow!("{}: {e}", path.display())),
+            Ok(text) => {
+                toml::from_str(&text).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Config::default()),
             Err(e) => Err(anyhow::anyhow!("{}: {e}", path.display())),
         }
@@ -96,6 +119,13 @@ mod tests {
     }
 
     #[test]
+    fn the_android_helper_is_on_unless_turned_off() {
+        assert!(Config::default().android.helper);
+        let c: Config = toml::from_str("[android]\nhelper = false\n").unwrap();
+        assert!(!c.android.helper);
+    }
+
+    #[test]
     fn dnd_can_point_at_another_focus() {
         let c: Config = toml::from_str("[dnd]\nfocus = \"업무\"\n").unwrap();
         assert_eq!(c.dnd.focus.as_deref(), Some("업무"));
@@ -103,7 +133,9 @@ mod tests {
 
     #[test]
     fn an_old_safety_section_is_ignored() {
-        let c: Config = toml::from_str("[safety]\nonly_apps = [\"com.apple.Preferences\"]\ndnd = false\n").unwrap();
+        let c: Config =
+            toml::from_str("[safety]\nonly_apps = [\"com.apple.Preferences\"]\ndnd = false\n")
+                .unwrap();
         assert!(c.dnd.focus.is_none());
     }
 }

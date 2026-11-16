@@ -16,6 +16,12 @@ pub fn typeable(text: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Printable ASCII only: what the helper types as key presses. Anything
+/// else (Korean, emoji, accents, line breaks) it pastes.
+pub fn printable_ascii(text: &str) -> bool {
+    text.chars().all(|c| (' '..='~').contains(&c))
+}
+
 /// `text` as the argument of `input text`: spaces as `%s`, the rest quoted
 /// for the phone's shell.
 pub fn input_text_arg(text: &str) -> String {
@@ -72,7 +78,11 @@ pub fn parse_combo(input: &str) -> Result<(u32, Vec<u32>), String> {
     if lower.is_empty() {
         return Err("empty key".into());
     }
-    let parts: Vec<&str> = if lower == "+" { vec!["+"] } else { lower.split('+').collect() };
+    let parts: Vec<&str> = if lower == "+" {
+        vec!["+"]
+    } else {
+        lower.split('+').collect()
+    };
     let (key, mods) = parts.split_last().unwrap();
     let mut modifiers = Vec::new();
     for m in mods {
@@ -80,13 +90,20 @@ pub fn parse_combo(input: &str) -> Result<(u32, Vec<u32>), String> {
             "cmd" | "command" | "ctrl" | "control" => 113,
             "opt" | "option" | "alt" => 57,
             "shift" => 59,
-            other => return Err(format!("unknown modifier `{other}` (cmd, ctrl, opt, shift)")),
+            other => {
+                return Err(format!(
+                    "unknown modifier `{other}` (cmd, ctrl, opt, shift)"
+                ));
+            }
         });
     }
     let code = if let Some(n) = key.strip_prefix("kc:") {
-        n.parse::<u32>().map_err(|_| format!("bad key code `{key}`"))?
+        n.parse::<u32>()
+            .map_err(|_| format!("bad key code `{key}`"))?
     } else if let Some(name) = key.strip_prefix("keycode_") {
-        return keycode_name(name).map(|c| (c, modifiers)).ok_or_else(|| format!("unknown key `{key}`"));
+        return keycode_name(name)
+            .map(|c| (c, modifiers))
+            .ok_or_else(|| format!("unknown key `{key}`"));
     } else if let Some(c) = named(key) {
         c
     } else if key.chars().count() == 1 {
@@ -119,20 +136,30 @@ fn keycode_name(name: &str) -> Option<u32> {
         "page_down" => "pagedown",
         other => other,
     };
-    named(alias).or_else(|| (alias.chars().count() == 1).then(|| char_code(alias.chars().next()?)).flatten())
+    named(alias).or_else(|| {
+        (alias.chars().count() == 1)
+            .then(|| char_code(alias.chars().next()?))
+            .flatten()
+    })
 }
 
 /// Hardware buttons: home, back, lock (power), volume, recents.
 pub fn button(name: &str) -> Result<u32, String> {
-    Ok(match name.trim().to_lowercase().replace('-', "_").as_str() {
-        "home" => 3,
-        "back" => 4,
-        "lock" | "power" => 26,
-        "volume_up" => 24,
-        "volume_down" => 25,
-        "recents" | "app_switch" => 187,
-        other => return Err(format!("unknown button `{other}` (home, back, lock, volume_up, volume_down, recents)")),
-    })
+    Ok(
+        match name.trim().to_lowercase().replace('-', "_").as_str() {
+            "home" => 3,
+            "back" => 4,
+            "lock" | "power" => 26,
+            "volume_up" => 24,
+            "volume_down" => 25,
+            "recents" | "app_switch" => 187,
+            other => {
+                return Err(format!(
+                    "unknown button `{other}` (home, back, lock, volume_up, volume_down, recents)"
+                ));
+            }
+        },
+    )
 }
 
 #[cfg(test)]
@@ -149,6 +176,14 @@ mod tests {
         assert!(typeable("tab\there").is_err());
         assert!(typeable("100%sure").is_err());
         assert!(typeable("100% sure").is_ok());
+    }
+
+    #[test]
+    fn the_helper_types_ascii_and_pastes_the_rest() {
+        assert!(printable_ascii("100%sure ~!"));
+        assert!(!printable_ascii("화면"));
+        assert!(!printable_ascii("😀"));
+        assert!(!printable_ascii("a\nb"));
     }
 
     #[test]

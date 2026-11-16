@@ -1,5 +1,5 @@
 //! `phone doctor` for an Android phone: adb, authorization, screen on and
-//! unlocked, and a real `uiautomator dump`. Sends no input.
+//! unlocked, the helper, and a real reading. Sends no input.
 
 use serde_json::{Value, json};
 
@@ -15,7 +15,9 @@ use crate::{
 
 /// `dumpsys power`: awake unless `mWakefulness` says otherwise.
 pub fn screen_awake(power: &str) -> Option<bool> {
-    let v = power.lines().find_map(|l| l.trim().strip_prefix("mWakefulness="))?;
+    let v = power
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("mWakefulness="))?;
     Some(v.trim().eq_ignore_ascii_case("awake"))
 }
 
@@ -23,7 +25,12 @@ pub fn screen_awake(power: &str) -> Option<bool> {
 /// it differently; any of them being true is locked.
 pub fn keyguard_showing(window: &str) -> Option<bool> {
     let mut seen = None;
-    for key in ["isKeyguardShowing=", "mShowingLockscreen=", "mDreamingLockscreen=", "KeyguardShowing="] {
+    for key in [
+        "isKeyguardShowing=",
+        "mShowingLockscreen=",
+        "mDreamingLockscreen=",
+        "KeyguardShowing=",
+    ] {
         for l in window.lines() {
             for part in l.split_whitespace() {
                 if let Some(v) = part.strip_prefix(key) {
@@ -38,7 +45,11 @@ pub fn keyguard_showing(window: &str) -> Option<bool> {
 
 pub async fn run(s: &mut AndroidSession, _args: DoctorArgs) -> Res {
     let mut checks: Vec<Check> = Vec::new();
-    let skip = |name: &'static str, why: &str| Check::new(name, true).status("skipped").detail(why.to_string());
+    let skip = |name: &'static str, why: &str| {
+        Check::new(name, true)
+            .status("skipped")
+            .detail(why.to_string())
+    };
 
     // 1. adb itself.
     let Some(path) = adb::adb_path() else {
@@ -51,24 +62,41 @@ pub async fn run(s: &mut AndroidSession, _args: DoctorArgs) -> Res {
     checks.push(Check::new("adb", true).detail(path.display().to_string()));
 
     // 2. The device is listed and authorized.
-    let listed = adb::list_devices().await.ok().and_then(|l| l.into_iter().find(|d| d.serial == s.serial));
+    let listed = adb::list_devices()
+        .await
+        .ok()
+        .and_then(|l| l.into_iter().find(|d| d.serial == s.serial));
     let usable = match &listed {
         Some(d) if d.state == "device" => {
-            checks.push(Check::new("device", true).detail(format!("{} over {}", d.model.clone().unwrap_or_default(), d.connection)));
+            checks.push(Check::new("device", true).detail(format!(
+                "{} over {}",
+                d.model.clone().unwrap_or_default(),
+                d.connection
+            )));
             true
         }
         Some(d) if d.state == "unauthorized" => {
-            checks.push(Check::new("device", true).status("fail").detail("unauthorized").action(
-                "폰 화면의 'USB 디버깅을 허용하시겠습니까?'에서 허용을 누르세요.",
-                "Tap Allow on the phone's \"Allow USB debugging?\" prompt.",
-            ));
+            checks.push(
+                Check::new("device", true)
+                    .status("fail")
+                    .detail("unauthorized")
+                    .action(
+                        "폰 화면의 'USB 디버깅을 허용하시겠습니까?'에서 허용을 누르세요.",
+                        "Tap Allow on the phone's \"Allow USB debugging?\" prompt.",
+                    ),
+            );
             false
         }
         Some(d) => {
-            checks.push(Check::new("device", true).status("fail").detail(d.state.clone()).action(
-                "USB를 다시 꽂거나 `adb connect <IP>:<port>`로 다시 연결하세요.",
-                "Plug the cable in again, or reconnect with `adb connect <IP>:<port>`.",
-            ));
+            checks.push(
+                Check::new("device", true)
+                    .status("fail")
+                    .detail(d.state.clone())
+                    .action(
+                        "USB를 다시 꽂거나 `adb connect <IP>:<port>`로 다시 연결하세요.",
+                        "Plug the cable in again, or reconnect with `adb connect <IP>:<port>`.",
+                    ),
+            );
             false
         }
         None => {
@@ -95,7 +123,9 @@ pub async fn run(s: &mut AndroidSession, _args: DoctorArgs) -> Res {
             "폰 화면을 켜 주세요. 오래 쓸 때는 개발자 옵션의 '화면 켜짐 상태 유지'를 권합니다.",
             "Wake the phone. For long sessions turn on Developer options → Stay awake.",
         ),
-        None => Check::new("screen_on", true).status("warn").detail("dumpsys power did not say"),
+        None => Check::new("screen_on", true)
+            .status("warn")
+            .detail("dumpsys power did not say"),
     });
 
     // 4. Unlocked.
@@ -107,10 +137,30 @@ pub async fn run(s: &mut AndroidSession, _args: DoctorArgs) -> Res {
             "폰 잠금을 풀어 주세요. 비밀번호·지문 입력은 대신 하지 않습니다.",
             "Unlock the phone. Passwords and fingerprints are never entered for you.",
         ),
-        None => Check::new("screen_unlocked", true).status("warn").detail("dumpsys window did not say"),
+        None => Check::new("screen_unlocked", true)
+            .status("warn")
+            .detail("dumpsys window did not say"),
     });
 
-    // 5. A real dump.
+    // 5. The helper (fast reading, input and Korean typing). Not required:
+    // without it the adb tools do the same, slower and ASCII-only.
+    let _ = s.helper_caps_now().await;
+    let h = s.helper_status();
+    checks.push(match h["state"].as_str() {
+        Some("running") => {
+            let caps = &h["caps"];
+            let on: Vec<&str> = ["snapshot", "inject", "clipboard", "labels"].into_iter().filter(|k| caps[*k] == true).collect();
+            let c = Check::new("android_helper", false).detail(format!("running (pid {}, sdk {}): {}", h["pid"], h["sdk"], on.join(", ")));
+            if on.len() < 4 { c.status("warn") } else { c }
+        }
+        Some("off") => Check::new("android_helper", false).status("info").detail("off ([android] helper = false or PHONE_ANDROID_HELPER=0): adb tools only, ASCII typing only"),
+        _ => Check::new("android_helper", false).status("warn").detail(h["last_error"].as_str().unwrap_or("not started").to_string()).action(
+            "헬퍼 없이도 동작하지만 느리고 한글 입력이 안 됩니다. `phone status`의 helper.last_error를 확인하세요.",
+            "Everything still works through adb, slower and without Korean typing. See helper.last_error in `phone status`.",
+        ),
+    });
+
+    // 6. A real reading.
     checks.push(match s.screen(Fresh::Force, false, BuildOptions::default()).await {
         Ok((_, screen)) if screen.elements.len() > 1 => Check::new("accessibility_tree", true).detail(format!(
             "{} elements, {} in front",
@@ -127,21 +177,33 @@ pub async fn run(s: &mut AndroidSession, _args: DoctorArgs) -> Res {
         ),
     });
 
-    // 6. Stay awake while charging (advice).
-    let stay = s.adb().shell("settings get global stay_on_while_plugged_in", 8).await.ok();
+    // 7. Stay awake while charging (advice).
+    let stay = s
+        .adb()
+        .shell("settings get global stay_on_while_plugged_in", 8)
+        .await
+        .ok();
     if stay.as_deref().map(str::trim).is_some_and(|v| v == "0") {
         checks.push(Check::new("stay_awake", false).status("info").action(
             "오래 쓸 때는 개발자 옵션 → '화면 켜짐 상태 유지'를 켜 두세요. 화면이 꺼지면 읽기와 입력이 멈춥니다.",
             "For long sessions turn on Developer options → Stay awake. Reading and input stop when the screen goes off.",
         ));
     }
-    checks.push(Check::new("do_not_disturb", false).status("info").detail("`phone dnd` is not supported on Android"));
+    checks.push(
+        Check::new("do_not_disturb", false)
+            .status("info")
+            .detail("`phone dnd` is not supported on Android"),
+    );
     Ok(finish(s, checks))
 }
 
 fn finish(s: &AndroidSession, checks: Vec<Check>) -> serde_json::Map<String, Value> {
     let ok = checks.iter().all(|c| !c.required || c.status == "ok");
-    let failing: Vec<Value> = checks.iter().filter(|c| c.required && c.status != "ok").map(|c| json!(c.check)).collect();
+    let failing: Vec<Value> = checks
+        .iter()
+        .filter(|c| c.required && c.status != "ok")
+        .map(|c| json!(c.check))
+        .collect();
     fields! {
         "ready": ok,
         "udid": s.serial.clone(),
@@ -161,9 +223,17 @@ mod tests {
         assert_eq!(screen_awake("  mWakefulness=Awake\n"), Some(true));
         assert_eq!(screen_awake("  mWakefulness=Asleep\n"), Some(false));
         assert_eq!(screen_awake("nothing"), None);
-        assert_eq!(keyguard_showing("    mShowingDream=false mDreamingLockscreen=false\n    isKeyguardShowing=false\n"), Some(false));
+        assert_eq!(
+            keyguard_showing(
+                "    mShowingDream=false mDreamingLockscreen=false\n    isKeyguardShowing=false\n"
+            ),
+            Some(false)
+        );
         assert_eq!(keyguard_showing("    isKeyguardShowing=true\n"), Some(true));
-        assert_eq!(keyguard_showing("  mShowingLockscreen=true mShowingDream=false\n"), Some(true));
+        assert_eq!(
+            keyguard_showing("  mShowingLockscreen=true mShowingDream=false\n"),
+            Some(true)
+        );
         assert_eq!(keyguard_showing(""), None);
     }
 }

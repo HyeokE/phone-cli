@@ -48,19 +48,23 @@ $ phone run settings-version
 
 ## 안드로이드
 
-같은 명령·인자·JSON 결과가 `adb`를 거쳐 안드로이드 폰에서도 동작합니다. 폰에는 아무것도 설치하지 않습니다. 읽기는 `uiautomator dump`, 입력은 `input tap|swipe|motionevent|keyevent|text`, 앱은 `am` / `pm` / `cmd package`, 스크린샷은 `screencap -p`를 씁니다.
+같은 명령·인자·JSON 결과가 `adb`를 거쳐 안드로이드 폰에서도 동작합니다. 앱은 설치하지 않습니다. 기본으로는 작은 도우미(`phone-helper.jar`, 바이너리에 내장, 약 22 KB)를 `/data/local/tmp`에 올려 scrcpy처럼 `app_process`로 실행합니다. 도우미는 UiAutomation으로 화면을 읽고, 터치·키를 직접 넣고, 클립보드로 글을 붙여 넣고, 앱 이름을 읽습니다. 재시동하면 사라지고, 해시가 다를 때만 다시 올립니다. 도우미를 끄거나 실행할 수 없으면 셸 도구(`uiautomator dump`, `input tap|swipe|motionevent|keyevent|text`, `am` / `pm` / `cmd package`, `screencap -p`)로 자동 전환합니다. 결과의 `backend`(`"helper"` 또는 `"adb"`)가 어느 경로였는지 알려 줍니다.
+
+- **도우미 켜고 끄기:** `config.toml`의 `[android] helper = false`, 또는 `PHONE_ANDROID_HELPER=0`으로 시작한 상주 프로세스는 셸 도구만 씁니다. 도우미가 실패하면 기다리는 시간을 늘려 가며 다시 시도하고, 그동안은 셸 도구가 처리합니다. `phone stop`은 폰의 도우미도 끝내고, 새 도우미는 남아 있던 도우미를 먼저 끝냅니다(UiAutomation 연결은 한 번에 하나만 등록됨).
 
 - **adb 위치:** `ADB` 환경 변수, PATH의 `adb`, `~/Library/Android/sdk/platform-tools/adb`(그리고 `ANDROID_HOME` / `ANDROID_SDK_ROOT`) 순서로 찾습니다.
 - **폰 준비:** 개발자 옵션 → USB 디버깅을 켜고 연결한 뒤 폰에서 허용을 누릅니다. Wi-Fi는 USB 상태에서 `adb tcpip 5555` 후 `adb connect <IP>:5555`(또는 무선 디버깅 + `adb pair`). `phone doctor`가 adb, 허용 여부, 화면 켜짐, 잠금 해제, 실제 덤프를 확인합니다.
 - **폰 고르기:** 기기 id는 adb serial(`R39N402N5SB`, `192.168.0.7:5555`)이고 `--udid`, `PHONE_UDID`, `udid`로 지정합니다. `phone devices`는 아이폰과 안드로이드 폰을 `platform` 필드와 함께 보여 줍니다. 같은 폰이 USB와 Wi-Fi로 함께 보이면 두 줄로 나오고 `same_device_as`로 서로를 가리킵니다(`ro.serialno` 기준). 폰을 지정하지 않았을 때는 한 대로 셉니다(USB 우선).
 - **화면 모델:** 위치는 dp(픽셀 / (density / 160))라서 아이폰의 포인트와 비슷한 크기로 읽히고, 탭할 때 다시 픽셀로 바꿉니다. `label`은 노드의 text, 없으면 `content-desc`이고(text와 다른 `content-desc`는 `hint`), `identifier`는 `resource-id`입니다. 스위치·체크박스의 `value`는 `"1"` / `"0"`, 입력 칸의 `value`는 그 글입니다. 앞에 있는 패키지의 `application` 요소가 화면 전체를 감싸고, `apps[].bundle_id`가 패키지 이름입니다. 식별자는 항상 들어 있습니다(`--full`은 차이가 없음).
 - **결과:** `done` / `not_sent` / `unknown`이 같습니다. `unknown`은 adb 입력 명령이 폰에 닿았을 수 있지만 결과가 불확실할 때만 나오고, adb가 기기에 닿지 못했으면 `not_sent`입니다. 탭 뒤에는 화면을 다시 읽어 iOS처럼 `screen_changed` / `verified`를 알려 줍니다. `uiautomator dump`는 UI가 멈출 때까지 기다린 뒤 덤프하므로 입력 뒤 한 번 읽으면 멈춘 화면입니다.
-- **글 입력:** `input text`는 **ASCII(영문·숫자·기호)만** 입력합니다. 한글·이모지 등은 `not_sent` / `unsupported_text`로 돌려줍니다(키보드 앱을 설치하지 않고, Android 13 셸에는 클립보드 명령이 없음). `--clear`는 끝으로 이동해 칸에 보이는 글자 수만큼 지웁니다. 빈 칸의 `value`가 안내 문구(placeholder)로 보일 수 있습니다(uiautomator가 그렇게 보고). 결과에 `input_method: "adb_input_text"`가 붙고 클립보드는 건드리지 않습니다.
+- **글 입력:** 도우미가 있으면 한글·이모지를 포함한 모든 글을 클립보드에 넣어 붙여 넣고, 원래 클립보드를 되돌립니다(`clipboard_restored`). 도우미가 없으면 `input text`라서 **ASCII(영문·숫자·기호)만** 입력하고, 그 밖의 글은 `not_sent` / `unsupported_text`로 돌려줍니다(키보드 앱을 설치하지 않고, Android 13 셸에는 클립보드 명령이 없음). `--clear`는 끝으로 이동해 칸에 보이는 글자 수만큼 지웁니다. 빈 칸의 `value`가 안내 문구(placeholder)로 보일 수 있습니다(uiautomator가 그렇게 보고). 결과에 `input_method: "adb_input_text"`가 붙고 클립보드는 건드리지 않습니다.
 - **키와 버튼:** `phone button back`이 안드로이드의 뒤로 가기입니다. 그 밖에 `home`, `lock`(전원), `volume_up`, `volume_down`, `recents`. `phone key`는 iOS와 같은 이름에 `back`, `keycode_<NAME>`, `kc:<번호>`를 더 받습니다. `cmd+…`는 Ctrl로 보내며 조합 키는 Android 13 이상에서만 됩니다.
-- **앱:** `phone apps`는 런처 앱과 사용자가 설치한 패키지를 이름 없이(`name: null`) 보여 줍니다. 실행은 패키지 이름(`com.android.settings`)으로 하고, 점 없는 단어는 패키지의 마지막 부분과 맞춥니다(`settings`).
+- **앱:** `phone apps`는 런처 앱과 사용자가 설치한 패키지를 보여 주고, 도우미가 있으면 런처에 보이는 이름도 붙입니다(없으면 `name: null`). 실행은 패키지 이름(`com.android.settings`)으로 하고, 점 없는 단어는 패키지의 마지막 부분과 맞춥니다(`settings`).
 - **아직 안 되는 것:** `phone dnd`(`unsupported`), `phone connect`(`adb connect`를 쓰세요), `phone diagnose`.
 
-SM-F700N(Android 13), USB, 2026-11-16 측정: `read` 2.3~2.5초(덤프 자체 비용), 확인을 포함한 `tap` 2.7초(직전 읽기를 재사용할 수 없으면 5.5초), `type` 5.2~6.0초(앞뒤로 한 번씩 읽음), `scroll --until` 한 단계 6.3초, `launch` 3.3초, `screenshot` 0.7초.
+SM-F700N(Android 13), 2026-11-16, 도우미 켬 / 끔(USB) 측정: `read` 12~16ms / 2.3~2.4초(Wi-Fi 20~41ms), 확인을 포함한 `tap` 0.67~0.75초 / 2.6초, `button back` 0.68초 / 3.0초, `type` 0.9~1.3초(한글·이모지 포함) / 5.3초(ASCII만), `scroll --until` 한 단계 1.2초 / 3.8초, `launch --restart` 1.0~1.9초 / 3.2초, `apps` 0.3초 / 0.2초. 도우미는 처음 쓸 때 약 0.35초 만에 뜹니다.
+
+이전의 셸 도구만 쓴 측정(같은 폰, USB): `read` 2.3~2.5초(덤프 자체 비용), 확인을 포함한 `tap` 2.7초(직전 읽기를 재사용할 수 없으면 5.5초), `type` 5.2~6.0초(앞뒤로 한 번씩 읽음), `scroll --until` 한 단계 6.3초, `launch` 3.3초, `screenshot` 0.7초.
 
 ## 설치
 
