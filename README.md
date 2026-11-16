@@ -2,7 +2,7 @@
 
 > Fork of [HyunSeob/iphone-cli](https://github.com/HyunSeob/iphone-cli), renamed to phone-cli (`phone`) ahead of Android support.
 
-**Let AI agents read and operate any app on a real iPhone — straight from your terminal.**
+**Let AI agents read and operate any app on a real iPhone or Android phone — straight from your terminal.**
 
 **No Xcode. No WebDriverAgent. No app installed on the phone. 100% Rust.**
 
@@ -38,9 +38,26 @@ $ phone tap "General"
 | Host | macOS, Windows 10/11 (x64) |
 | Device | A real iPhone, **iOS 27 or later** (verified on **one iPhone 15 Pro Max with iOS 27.0.1** only, Korean interface). Touch and text input go through the phone's screen-sharing service (`com.apple.coredevice.displayservice`, new in iOS 27), so input is not expected to work on iOS 26 or earlier (not tried) |
 | Connection | USB or the same LAN (the computer may use Ethernet; verified over USB and Wi-Fi on Windows) |
-| Out of scope | Simulators, Android, Linux hosts, landscape |
+| Android | A real Android phone over adb (USB or Wi-Fi), nothing installed on the phone. Verified on one Galaxy Z Flip (SM-F700N, Android 13 / API 33) over USB. See [Android](#android) |
+| Out of scope | Simulators and emulators (untested), Linux hosts, landscape |
 
 On Windows, `doctor`, reading, touch and scripts were checked with one iPhone19,4 on iOS 27.2 over USB.
+
+## Android
+
+The same commands, arguments and JSON results work on an Android phone through `adb`. Nothing is installed on the phone: reading is `uiautomator dump`, input is `input tap|swipe|motionevent|keyevent|text`, apps are `am` / `pm` / `cmd package`, screenshots `screencap -p`.
+
+- **adb:** `ADB` if set, else `adb` on PATH, else `~/Library/Android/sdk/platform-tools/adb` (also `ANDROID_HOME` / `ANDROID_SDK_ROOT`).
+- **Prepare the phone:** Developer options → USB debugging on, plug in, tap Allow. For Wi-Fi, `adb tcpip 5555` over USB then `adb connect <ip>:5555` (or Wireless debugging + `adb pair`). `phone doctor` checks adb, authorization, screen on, unlocked and a real dump.
+- **Choosing it:** the device id is the adb serial (`R39N402N5SB`, `192.168.0.7:5555`) in `--udid`, `PHONE_UDID` or `udid`. `phone devices` lists iPhones and Android phones with a `platform` field; one phone seen over USB and Wi-Fi shows twice with `same_device_as` (matched by `ro.serialno`), and is counted once when phone-cli picks the only phone (USB wins).
+- **Screen model:** frames are in dp (pixels / (density / 160)), so a screen reads at about the size an iPhone's points do; taps are converted back. `label` is the node's text, else its `content-desc` (a different `content-desc` goes to `hint`); `identifier` is the `resource-id`; switches and check boxes have `value` `"1"` / `"0"`; a text field's `value` is its text. An `application` element for the front package frames the screen; `apps[].bundle_id` is the package. Identifiers are always present (`--full` changes nothing).
+- **Results:** the same `done` / `not_sent` / `unknown`. `unknown` only when an adb input command may have reached the phone but its result is uncertain; adb failing to reach the device is `not_sent`. A tap re-reads the screen and reports `screen_changed` / `verified` as on iOS. `uiautomator dump` waits for the UI to go idle, so one reading after an input already shows the settled screen.
+- **Typing:** `input text` types **printable ASCII only**. Korean, emoji and other non-ASCII text returns `not_sent` / `unsupported_text` (no keyboard app is installed, and Android 13's shell has no clipboard command). `--clear` moves to the end and deletes as many characters as the field shows. A field's empty `value` may be its placeholder text, as uiautomator reports it. The result adds `input_method: "adb_input_text"`; the clipboard is never touched.
+- **Keys and buttons:** `phone button back` is Android's Back; `home`, `lock` (power), `volume_up`, `volume_down`, `recents`. `phone key` takes the same names as on iOS plus `back`, `keycode_<NAME>` and `kc:<code>`; `cmd+…` is sent as Ctrl and combinations need Android 13 or later.
+- **Apps:** `phone apps` lists launcher apps and user-installed packages, without display names (`name: null`). Launch by package (`com.android.settings`); a plain word matches the package's last part (`settings`).
+- **Not on Android yet:** `phone dnd` (`unsupported`), `phone connect` (use `adb connect`), `phone diagnose`.
+
+Measured on SM-F700N (Android 13) over USB, 2026-11-16: `read` 2.3 to 2.5 s (the dump's own cost), `tap` with its check 2.7 s (5.5 s when the last reading was too old to reuse), `type` 5.2 to 6.0 s (a reading before and after), `scroll --until` one step 6.3 s, `launch` 3.3 s, `screenshot` 0.7 s.
 
 ## Install
 
@@ -131,7 +148,7 @@ Every command prints JSON; add `--human` for people. The device is chosen by `--
 | `phone scroll <up\|down> [--until selector] [--max N]` | One step, or until an element shows |
 | `phone type <text> [--clear] [--submit]` | Paste text into the field that has the keyboard (any language, emoji). The clipboard is put back and the field's value checked |
 | `phone key <key>` | `return`, `esc`, `tab`, `cmd+a` … |
-| `phone button <home\|lock\|volume_up\|volume_down>` | Hardware buttons |
+| `phone button <home\|lock\|volume_up\|volume_down>` | Hardware buttons (Android also `back`, `recents`) |
 | `phone launch <bundle id \| name> [--restart]` / `phone apps` | Launch an app, list apps |
 | `phone screenshot [-o file]` | PNG capture |
 | `phone batch <file \| ->` | A JSON array of steps in one call |

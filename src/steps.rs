@@ -18,10 +18,10 @@ use serde_json::{Map, Value, json};
 use crate::{
     actions::{self, ButtonArgs, KeyArgs, LaunchArgs, ScrollArgs, SwipeArgs, TapArgs, TypeArgs, brief},
     ax::{
-        attrs,
-        tree::{BuildOptions, Element, Rect, Screen},
+        tree::{BuildOptions, Element, Screen},
     },
-    device::session::{Fresh, Session, reuse},
+    device::session::{Fresh, reuse},
+    platform::Phone,
     fields,
     i18n::t,
     reply::{Fail, Res},
@@ -227,7 +227,7 @@ fn apply_regex(text: Option<String>, pattern: Option<&str>) -> Result<Option<Str
 /// One list row on one reading: what is reported for it, what identifies it,
 /// and where it sat.
 #[derive(Debug, Clone)]
-struct Row {
+pub struct Row {
     value: Value,
     key: String,
     y: f64,
@@ -528,8 +528,11 @@ fn step_failure(
 /// Extra fields for a step's record and, for read steps, the value read.
 type StepOutput = (Map<String, Value>, Option<(String, Value)>);
 
-impl Session {
-    pub(crate) async fn wait_for(&mut self, sel: &Selector, timeout: Duration) -> Res<Element> {
+/// Steps on any phone: written against [`Phone`] only, so the iPhone and
+/// Android run the same step logic.
+#[allow(async_fn_in_trait)]
+pub trait Steps: Phone + Sized {
+    async fn wait_for(&mut self, sel: &Selector, timeout: Duration) -> Res<Element> {
         let started = Instant::now();
         let full = sel.needs_identifier();
         let mut fresh = Fresh::MaxAge(reuse());
@@ -559,7 +562,7 @@ impl Session {
     /// the row was then lands on its neighbour (2026-11-11: right after a
     /// launch a tap on one row of a home screen opened the page of the row
     /// above it).
-    pub(crate) async fn settle_target(&mut self, sel: &Selector) -> Res<()> {
+    async fn settle_target(&mut self, sel: &Selector) -> Res<()> {
         let full = sel.needs_identifier();
         let place = |screen: &Screen| -> Option<(i64, i64, i64, i64)> {
             match dedupe_targets(sel.find(screen)).as_slice() {
@@ -587,40 +590,8 @@ impl Session {
         Ok(())
     }
 
-    /// Whether the one element `sel` finds on `screen` is still where that
-    /// reading put it, asked of the phone directly (tens of milliseconds where
-    /// a fresh reading takes over a second). A target on the move is asked
-    /// again until two answers agree. False sends `settle_target` to full
-    /// readings: no single match, no answer, or the element is gone.
-    async fn held_still(&mut self, sel: &Selector, screen: &Screen) -> bool {
-        let el = match dedupe_targets(sel.find(screen)).as_slice() {
-            [one] => (*one).clone(),
-            _ => return false,
-        };
-        let (Some(key), Some(frame)) = (el.key, el.frame) else { return false };
-        let round = |r: &Rect| (r.x.round() as i64, r.y.round() as i64, r.w.round() as i64, r.h.round() as i64);
-        let mut last = round(&frame);
-        for _ in 0..8 {
-            let Some(ax) = self.ax.as_mut() else { return false };
-            let now = ax
-                .ask(key, attrs::FRAME, Duration::from_secs(1))
-                .await
-                .and_then(|v| v.get("NS.rectval").and_then(|r| r.as_str()).and_then(Rect::parse));
-            let Some(now) = now.map(|r| round(&r)) else { return false };
-            if now.2 == 0 && now.3 == 0 {
-                return false;
-            }
-            if now == last {
-                return true;
-            }
-            last = now;
-            tokio::time::sleep(Duration::from_millis(150)).await;
-        }
-        false
-    }
-
     /// `name` is what a batch files the value under; a script has no use for it.
-    pub(crate) async fn read_field(&mut self, body: &Value) -> Res<(String, Value)> {
+    async fn read_field(&mut self, body: &Value) -> Res<(String, Value)> {
         let map = body.as_object().ok_or_else(|| Fail::invalid("read_field needs a map"))?;
         let name = map.get("name").and_then(|v| v.as_str()).unwrap_or("value");
         let sel_value = map.get("selector").ok_or_else(|| Fail::invalid("read_field needs `selector`"))?;
@@ -802,7 +773,7 @@ impl Session {
         Ok(r.get("screen_changed").and_then(|v| v.as_bool()).unwrap_or(false))
     }
 
-    pub(crate) async fn read_list(&mut self, body: &Value) -> Res<(String, Value, Value)> {
+    async fn read_list(&mut self, body: &Value) -> Res<(String, Value, Value)> {
         let map = body.as_object().ok_or_else(|| Fail::invalid("read_list needs a map"))?;
         let name = map.get("name").and_then(|v| v.as_str()).unwrap_or("rows");
         let row = Selector::from_value(map.get("row").ok_or_else(|| Fail::invalid("read_list needs `row`"))?)
@@ -1050,9 +1021,9 @@ impl Session {
 
     /// Reconnection discards the old accessibility subscription. Re-read before
     /// using a remembered launch guard, so it cannot silently become a no-op.
-    pub(crate) async fn check_expected_app(&mut self, expected_pid: Option<i64>) -> Res<()> {
+    async fn check_expected_app(&mut self, expected_pid: Option<i64>) -> Res<()> {
         self.refresh_connection();
-        if expected_pid.is_some() && self.ax.as_ref().is_none_or(|ax| ax.is_closed()) {
+        if expected_pid.is_some() && self.reading_lost() {
             Box::pin(self.cmd_read(Default::default())).await?;
         }
         match self.unexpected_app(expected_pid) {
@@ -1063,13 +1034,12 @@ impl Session {
 
     /// A failure when the latest reading shows another app in front than the
     /// one this run launched (a notification was tapped, a link opened …).
-    pub(crate) fn unexpected_app(&self, expected_pid: Option<i64>) -> Option<Fail> {
+    fn unexpected_app(&self, expected_pid: Option<i64>) -> Option<Fail> {
         let expected = expected_pid?;
-        let (_, dump, _) = self.ax.as_ref()?.latest()?;
-        if dump.applications.iter().any(|a| a.pid == expected) {
+        if self.latest_app_pids()?.contains(&expected) {
             return None;
         }
-        let screen = Screen::build(&dump, BuildOptions::default());
+        let screen = self.latest_screen()?;
         Some(
             Fail::not_sent(
                 "unexpected_app",
@@ -1232,7 +1202,7 @@ impl Session {
     }
 
     /// Run steps in order and stop at the first failure.
-    pub async fn run_steps(&mut self, steps: &[Value], args: &Map<String, Value>) -> Res {
+    async fn run_steps(&mut self, steps: &[Value], args: &Map<String, Value>) -> Res {
         let mut records: Vec<Value> = Vec::new();
         let mut outputs = Map::new();
         // The app the last `launch` step brought to the front. Every later
@@ -1314,9 +1284,19 @@ impl Session {
     }
 }
 
+impl<T: Phone> Steps for T {}
+
+/// The iPhone's batch entry point, as before the [`Phone`] abstraction.
+impl crate::device::session::Session {
+    pub async fn run_steps(&mut self, steps: &[Value], args: &Map<String, Value>) -> Res {
+        Box::pin(Steps::run_steps(self, steps, args)).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::device::session::Session;
 
     #[test]
     fn rejects_bad_steps() {

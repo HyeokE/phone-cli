@@ -166,14 +166,24 @@ pub fn render(cmd: &str, v: &Value) -> String {
         }
         "devices" => {
             for d in v["devices"].as_array().into_iter().flatten() {
-                out.push(format!(
-                    "{}  {}  iOS {}  {}  {}",
+                let version = if d["platform"] == "android" {
+                    format!("Android {}", s(&d["android_version"]))
+                } else {
+                    format!("iOS {}", s(&d["ios_version"]))
+                };
+                let mut line = format!(
+                    "{}  {}  {}  {}  {}",
                     s(&d["udid"]),
                     s(&d["connection"]),
-                    s(&d["ios_version"]),
+                    version,
                     s(&d["model"]),
                     s(&d["state"])
-                ));
+                );
+                if let Some(same) = d["same_device_as"].as_array() {
+                    let names: Vec<String> = same.iter().map(s).collect();
+                    line.push_str(&format!("  (same phone as {})", names.join(", ")));
+                }
+                out.push(line);
             }
             if out.is_empty() {
                 out.push("no devices".into());

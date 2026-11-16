@@ -84,6 +84,8 @@ impl Fixture {
             .env("PHONE_STATE_DIR", self.dir.join("state"))
             .env("PHONE_CONFIG_DIR", self.dir.join("config"))
             .env("USBMUXD_SOCKET_ADDRESS", &self.address)
+            // No real Android phone may be picked up from the host.
+            .env("ADB", self.dir.join("tools").join("no-adb"))
             .env_remove("PHONE_UDID")
             .env_remove("IPH_UDID")
             .env_remove("PHONE_TRACE")
@@ -294,6 +296,7 @@ fn unreachable_usbmuxd_still_saves_the_original_connection_error() {
     let output = fixture
         .command()
         .env("USBMUXD_SOCKET_ADDRESS", "127.0.0.1:0")
+        .env("ADB", "/nonexistent/adb")
         .args(["diagnose", "-o", "unreachable.txt"])
         .output()
         .unwrap();

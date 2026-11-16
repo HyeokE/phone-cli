@@ -42,6 +42,7 @@ impl Sandbox {
         let out = Command::new(env!("CARGO_BIN_EXE_phone"))
             .args(args)
             .env("PHONE_STATE_DIR", self.dir.join("state"))
+            .env("ADB", "/nonexistent/adb")
             .env("PHONE_CONFIG_DIR", self.dir.join("config"))
             .env("PHONE_UDID", NO_SUCH_PHONE)
             .env_remove("PHONE_TRACE")

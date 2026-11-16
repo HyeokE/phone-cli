@@ -100,6 +100,7 @@ impl Fixture {
                 }
             }))
             .env("PHONE_STATE_DIR", self.dir.join("state"))
+            .env("ADB", "/nonexistent/adb")
             .env("PHONE_CONFIG_DIR", self.dir.join("config"))
             .env("USBMUXD_SOCKET_ADDRESS", &self.address)
             .env("PHONE_PREFER", prefer)

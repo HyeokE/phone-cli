@@ -37,6 +37,7 @@ async fn wireless_setup_requires_an_explicit_flag_in_both_commands() {
                 cli.arg("--fix-wifi");
             }
             cli.env("PHONE_STATE_DIR", &dir.0)
+                .env("ADB", "/nonexistent/adb")
                 .env("PHONE_CONFIG_DIR", dir.0.join("config"))
                 .env("PHONE_LANG", "en")
                 .env_remove("PHONE_TRACE")

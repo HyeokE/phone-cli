@@ -4,6 +4,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod actions;
+pub mod android;
 pub mod ax;
 pub mod client;
 pub mod clock;
@@ -23,6 +24,7 @@ pub mod ipc;
 pub mod keys;
 pub mod mcp;
 pub mod paths;
+pub mod platform;
 pub mod script;
 pub mod steps;
 pub mod tcp;

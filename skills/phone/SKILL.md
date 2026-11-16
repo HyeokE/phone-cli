@@ -1,9 +1,9 @@
 ---
 name: phone
-description: 사용자의 실제 아이폰(시뮬레이터 아님)에서 앱 화면을 읽고 조작한다. `phone` CLI나 phone_* MCP 도구로 화면 요소(접근성 트리)를 읽고 탭 · 입력 · 스크롤하며, 여러 단계는 자바스크립트 스크립트 한 번으로 실행하고, 되풀이할 순서는 저장해 둔다. "아이폰에서 ○○ 해 줘", "폰에서 확인해 줘", "폰 앱에 있는 내역 · 목록 가져와 줘", "폰 앱 자동화", "phone 스크립트 만들어 줘"처럼 사용자의 실제 폰 화면을 보거나 눌러야 하는 요청이면 phone을 말하지 않아도 이 스킬을 쓴다. 실제 아이폰 작업에는 mobile-mcp나 스크린샷을 보고 좌표를 누르는 방식보다 이 스킬을 먼저 쓴다. iOS 시뮬레이터, 안드로이드, 앱 빌드 · 설치에는 쓰지 않는다.
+description: 사용자의 실제 아이폰 또는 안드로이드 폰(시뮬레이터·에뮬레이터 아님)에서 앱 화면을 읽고 조작한다. `phone` CLI나 phone_* MCP 도구로 화면 요소(접근성 트리)를 읽고 탭 · 입력 · 스크롤하며, 여러 단계는 자바스크립트 스크립트 한 번으로 실행하고, 되풀이할 순서는 저장해 둔다. "아이폰에서 ○○ 해 줘", "폰에서 확인해 줘", "폰 앱에 있는 내역 · 목록 가져와 줘", "폰 앱 자동화", "phone 스크립트 만들어 줘"처럼 사용자의 실제 폰 화면을 보거나 눌러야 하는 요청이면 phone을 말하지 않아도 이 스킬을 쓴다. 실제 폰 작업에는 mobile-mcp나 스크린샷을 보고 좌표를 누르는 방식보다 이 스킬을 먼저 쓴다. iOS 시뮬레이터, 안드로이드 에뮬레이터, 앱 빌드 · 설치에는 쓰지 않는다.
 ---
 
-# phone: operate the user's real iPhone
+# phone: operate the user's real iPhone or Android phone
 
 `phone` reads the iPhone's screen as a list of elements (label, value, role, position) and taps, types and scrolls. It talks to the phone directly; nothing is installed on it. Every command prints one JSON object. If `phone_*` MCP tools are present they take the same arguments and return the same JSON; otherwise run `phone` in the shell.
 
@@ -25,6 +25,15 @@ This is a real phone with the user's accounts on it. A tap cannot be taken back,
    - `app_changed: true` means another app came to the front (a banner was hit, a link opened). Stop and tell the user.
    - For `type`, `verified` only means the original field's value was read afterwards; it does not prove the intended text was entered. Inspect `value_before`, `value` (both before Return), `value_changed` (`true` / `false` / `null`) and `warning`. Empty `""` is readable; `null` is unavailable. `screen_changed` compares accessibility trees after restoring the screen keyboard, and is `null` if that comparison could not be made.
    - An unchanged value warns with `warning.code: "value_unchanged"`, even for an identical replacement with `--clear`; masking or app behavior can also cause it. If paste seems blocked, check Settings → Apps → the app → Paste from Other Apps → Allow, without treating that cause as proven. Do not automatically retype. `--submit` withholds Return on any observation warning and returns `unknown` / `type_not_verified` / `submit_sent: false`. The input keys have already gone out: inspect before deciding to send `key("return")` separately. A clear-only command may submit if an empty value was read. `submit_sent: null` means a Return send failed and may have gone out.
+
+## Android
+
+The same commands and JSON work on an Android phone through adb; select it by its adb serial (`--udid R39N402N5SB`, `--udid 192.168.0.7:5555`). `phone devices` shows `platform: "android"`; one phone over USB and Wi-Fi appears twice with `same_device_as`, so use one serial for the whole task.
+
+- **Back:** `phone button back` (MCP `phone_button` `"back"`) is the usual way out of a screen; `home`, `recents` and `lock` exist too.
+- **Text limits:** `phone type` sends printable ASCII only. Korean, emoji or accents come back `not_sent` / `unsupported_text` and nothing is typed; tell the user instead of trying another way. Send line breaks with `phone key return`. An empty field's `value` may be its placeholder (`value_before: "Search"`), so judge from `value` after typing.
+- **Pace:** a reading takes 2.3 to 2.5 s (uiautomator waits for the screen to settle), a tap with its check about 3 s. Prefer scripts for multi-step work.
+- **Apps:** launch by package (`com.android.settings`); `phone apps` has no display names. `phone dnd` is not available on Android.
 
 ## Outcomes
 

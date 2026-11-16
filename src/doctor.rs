@@ -50,7 +50,7 @@ pub struct Check {
 }
 
 impl Check {
-    fn new(check: &'static str, required: bool) -> Self {
+    pub(crate) fn new(check: &'static str, required: bool) -> Self {
         Self {
             check,
             status: "ok",
@@ -61,17 +61,17 @@ impl Check {
         }
     }
 
-    fn status(mut self, status: &'static str) -> Self {
+    pub(crate) fn status(mut self, status: &'static str) -> Self {
         self.status = status;
         self
     }
 
-    fn action(mut self, ko: &str, en: &str) -> Self {
+    pub(crate) fn action(mut self, ko: &str, en: &str) -> Self {
         self.user_action = Some(t(ko, en).to_string());
         self
     }
 
-    fn detail(mut self, detail: impl Into<String>) -> Self {
+    pub(crate) fn detail(mut self, detail: impl Into<String>) -> Self {
         self.detail = Some(detail.into());
         self
     }

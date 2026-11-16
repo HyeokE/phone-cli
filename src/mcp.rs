@@ -53,7 +53,7 @@ fn tools() -> Vec<Value> {
         ),
         tool(
             "phone_read",
-            "Read the iPhone's current screen as a list of elements (id, role, label, value, frame in points, traits, enabled). \
+            "Read the phone's current screen (iPhone or Android) as a list of elements (id, role, label, value, frame in points (dp on Android), traits, enabled). \
              Read before acting; coordinates and labels come from here. Only on-screen elements unless all=true.",
             json!({
                 "app": { "type": "boolean", "description": "Only the foreground app's elements." },
@@ -126,7 +126,7 @@ fn tools() -> Vec<Value> {
         tool(
             "phone_button",
             "Press a hardware button.",
-            json!({ "button": { "type": "string", "enum": ["home", "lock", "volume_up", "volume_down"] } }),
+            json!({ "button": { "type": "string", "enum": ["home", "lock", "volume_up", "volume_down", "back", "recents"], "description": "back and recents are Android only" } }),
             &["button"],
         ),
         tool(
@@ -281,7 +281,7 @@ async fn handle(udid: &str, only: &[String], msg: &Value) -> Option<Value> {
                     "protocolVersion": version,
                     "capabilities": { "tools": {} },
                     "serverInfo": { "name": "phone", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": "Operate a real iPhone through its accessibility tree. Read the screen with phone_read, act with phone_tap / phone_type / phone_scroll, \
+                    "instructions": "Operate a real iPhone or Android phone through its accessibility tree. Read the screen with phone_read, act with phone_tap / phone_type / phone_scroll, \
                                      and check `screen_changed` in each result. For typing also check value_changed and warning: verified only means read back. Never automatically retype on a warning. For a known sequence prefer one phone_script (or a saved one with phone_run): one call instead of one per step. \
                                      Outcome \"unknown\" means input may have gone out: read the screen, never resend.",
                 }),

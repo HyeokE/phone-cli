@@ -19,10 +19,13 @@ use tokio::{
 use crate::{
     actions::parse_args,
     config::Config,
+    android::session::AndroidSession,
     device::session::Session,
     doctor, events, fields, ipc, paths,
+    platform::{self, Device, Phone, Platform},
     reply::{Fail, Res, envelope},
-    script,
+    script::{self, Scripts},
+    steps::Steps,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,7 +59,49 @@ fn log(msg: &str) {
     eprintln!("[{}] {msg}", crate::clock::now_utc());
 }
 
-async fn dispatch(s: &mut Session, cmd: &str, args: &Value) -> Res {
+async fn dispatch(device: &mut Device, cmd: &str, args: &Value) -> Res {
+    match device {
+        Device::Ios(s) => Box::pin(dispatch_ios(s, cmd, args)).await,
+        Device::Android(a) => Box::pin(dispatch_android(a, cmd, args)).await,
+    }
+}
+
+/// The commands on an Android phone: the same names, arguments and results.
+async fn dispatch_android(a: &mut AndroidSession, cmd: &str, args: &Value) -> Res {
+    match cmd {
+        "read" => Box::pin(a.cmd_read(parse_args(args)?)).await,
+        "find" => Box::pin(a.cmd_find(parse_args(args)?)).await,
+        "tap" => Box::pin(a.cmd_tap(parse_args(args)?)).await,
+        "swipe" => Box::pin(a.cmd_swipe(parse_args(args)?)).await,
+        "scroll" => Box::pin(a.cmd_scroll(parse_args(args)?)).await,
+        "type" => Box::pin(a.cmd_type(parse_args(args)?)).await,
+        "key" => Box::pin(a.cmd_key(parse_args(args)?)).await,
+        "button" => Box::pin(a.cmd_button(parse_args(args)?)).await,
+        "launch" => Box::pin(a.cmd_launch(parse_args(args)?)).await,
+        "apps" => Box::pin(a.cmd_apps()).await,
+        "screenshot" => Box::pin(a.cmd_screenshot(parse_args(args)?)).await,
+        "batch" => {
+            let steps = args
+                .get("steps")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| Fail::invalid("batch needs a JSON array of steps"))?;
+            Box::pin(a.run_steps(steps, &Map::new())).await
+        }
+        "script" => Box::pin(a.serve_script(args)).await,
+        "doctor" => Box::pin(crate::android::doctor::run(a, parse_args(args)?)).await,
+        "dnd" => a.cmd_dnd(args).await,
+        "status" => Ok(fields! {
+            "udid": a.serial.clone(),
+            "platform": "android",
+            "connection": a.connection(),
+            "pid": std::process::id(),
+            "build": build_stamp(),
+        }),
+        other => Err(Fail::invalid(format!("unknown command `{other}`"))),
+    }
+}
+
+async fn dispatch_ios(s: &mut Session, cmd: &str, args: &Value) -> Res {
     s.refresh_connection();
     match cmd {
         "read" => Box::pin(s.cmd_read(parse_args(args)?)).await,
@@ -117,7 +162,7 @@ pub fn budget(cmd: &str) -> Duration {
 }
 
 struct Shared {
-    session: Mutex<Session>,
+    session: Mutex<Device>,
     last_request: StdMutex<Instant>,
     build: String,
     udid: String,
@@ -215,13 +260,18 @@ pub async fn run(udid: String) -> Result<()> {
 
     let config = Config::load()?;
     let idle_exit = Duration::from_secs(config.daemon.idle_exit_secs.max(30));
+    let kind = platform::detect(&udid).await;
+    let device = match kind {
+        Platform::Ios => Device::Ios(Box::new(Session::new(udid.clone(), config))),
+        Platform::Android => Device::Android(Box::new(AndroidSession::new(udid.clone(), config))),
+    };
     let shared = Arc::new(Shared {
-        session: Mutex::new(Session::new(udid.clone(), config)),
+        session: Mutex::new(device),
         last_request: StdMutex::new(Instant::now()),
         build: build_stamp(),
         udid: udid.clone(),
     });
-    log(&format!("daemon for {udid} listening, build {}", shared.build));
+    log(&format!("daemon for {udid} ({}) listening, build {}", kind.as_str(), shared.build));
 
     // Requests run one at a time, so everything stays on this thread: the
     // device futures need not be `Send`.

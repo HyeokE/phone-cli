@@ -32,11 +32,33 @@ pub async fn resolve_udid(flag: Option<String>) -> Result<String, Fail> {
     if let Some(u) = config.udid.filter(|u| !u.is_empty()) {
         return Ok(u);
     }
-    let devices = conn::list()
-        .await
-        .map_err(|e| Fail::not_sent("usbmuxd_unreachable", format!("{e:#}")))?;
-    events::record("device_selection", if devices.len() == 1 { "ok" } else { "error" }, 0,
-        json!({ "devices": devices, "count": devices.len() }));
+    // Android phones count too, when adb is installed (one per phone, even
+    // when USB and Wi-Fi both reach it). Without adb this is as before.
+    let android = if crate::android::adb::adb_path().is_some() {
+        crate::android::devices::usable().await
+    } else {
+        Vec::new()
+    };
+    let devices = match conn::list().await {
+        Ok(d) => d,
+        Err(_) if !android.is_empty() => Vec::new(),
+        Err(e) => return Err(Fail::not_sent("usbmuxd_unreachable", format!("{e:#}"))),
+    };
+    let total = devices.len() + android.len();
+    events::record("device_selection", if total == 1 { "ok" } else { "error" }, 0,
+        json!({ "devices": devices, "android": android, "count": total }));
+    if !android.is_empty() {
+        return match (devices.len(), android.len()) {
+            (0, 1) => Ok(android[0].serial.clone()),
+            _ => Err(Fail::not_sent("multiple_devices", format!("{total} phones are connected"))
+                .hint(t(
+                    "`--udid <UDID 또는 adb serial>`로 하나를 고르거나 ~/.config/phone/config.toml에 `udid = \"…\"`를 적으세요.",
+                    "Pick one with `--udid <UDID or adb serial>` or put `udid = \"…\"` in ~/.config/phone/config.toml.",
+                ))
+                .with("devices", json!(devices))
+                .with("android_devices", json!(android))),
+        };
+    }
     match devices.len() {
         1 => Ok(devices[0].udid.clone()),
         0 => Err(Fail::not_sent("no_device", "no iPhone is connected").hint(t(

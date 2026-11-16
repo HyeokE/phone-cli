@@ -15,13 +15,14 @@ use serde_json::{Map, Value, json};
 #[command(
     name = "phone",
     version,
-    about = "Read and operate any app on a real iPhone through its accessibility tree",
-    long_about = "Read and operate any app on a real iPhone through its accessibility tree.\n\
-                  No XCUITest, WebDriverAgent or Xcode signing. Output is JSON; add --human for people.\n\
+    about = "Read and operate any app on a real iPhone or Android phone through its accessibility tree",
+    long_about = "Read and operate any app on a real iPhone or Android phone through its accessibility tree.\n\
+                  No XCUITest, WebDriverAgent or Xcode signing; Android goes through adb with nothing installed on the phone.\n\
+                  Output is JSON; add --human for people.\n\
                   Exit codes: 0 ok, 1 nothing was sent, 2 outcome unknown (check the screen)."
 )]
 struct Cli {
-    /// Device to use. Defaults to PHONE_UDID, config.toml, or the only connected iPhone.
+    /// Device to use: an iPhone UDID or an adb serial. Defaults to PHONE_UDID, config.toml, or the only connected phone.
     #[arg(long, global = true)]
     udid: Option<String>,
     /// Print for people instead of JSON.
@@ -36,7 +37,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// List connected iPhones.
+    /// List connected iPhones and Android phones.
     Devices,
     /// Verify and save the selected paired iPhone's IP when automatic discovery fails.
     Connect(connect::Args),
@@ -123,7 +124,7 @@ enum Cmd {
     },
     /// Press a key: return, esc, tab, cmd+a …
     Key { key: String },
-    /// Press a hardware button: home, lock, volume_up, volume_down.
+    /// Press a hardware button: home, lock, volume_up, volume_down (Android also: back, recents).
     Button { button: String },
     /// Launch an app by bundle id or name.
     Launch {
@@ -295,7 +296,14 @@ async fn run(cli: Cli) -> i32 {
 
     let (cmd, args): (&str, Value) = match cli.command {
         Cmd::Connect(args) => {
-            let v = envelope(connect::run(&udid, args).await, started);
+            let result = if !phone_cli::platform::looks_like_ios_udid(&udid)
+                && phone_cli::platform::detect(&udid).await == phone_cli::platform::Platform::Android
+            {
+                Err(Fail::invalid("`phone connect` is for iPhones; connect an Android phone with `adb connect <IP>:<port>`"))
+            } else {
+                connect::run(&udid, args).await
+            };
+            let v = envelope(result, started);
             print(&v, human_out, "connect");
             return exit_code(&v);
         }

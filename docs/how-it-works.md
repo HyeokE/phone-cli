@@ -123,3 +123,16 @@ Wi-Fi heartbeat의 종료·SleepyTime·응답 시간 초과를 관측하면 캐�
 알림 배너는 앱의 접근성 트리에 나오지 않아 탭을 가로챌 수 있습니다. 방해금지 모드에서도 허용된 알림·알람·시스템 팝업은 남을 수 있습니다. 전환이 실패하면 `control_center: "may still be open"`이 반환될 수 있으므로 화면을 확인합니다.
 
 구현: [dnd.rs](../src/dnd.rs).
+
+## 8. 안드로이드
+
+안드로이드 폰은 `adb` 한 가지 경로로 다룹니다. 폰에는 아무것도 설치하지 않으며, 연결을 붙잡아 두지 않고 명령마다 `adb` 프로세스를 하나씩 띄웁니다. 상주 프로세스는 아이폰과 같은 소켓·요청 형식을 쓰고(기기 id는 adb serial), 요청을 차례대로 처리해 기기별 순서가 유지됩니다. 시작할 때 id가 아이폰 UDID 모양(16진수 40자리, 또는 8-16자리)이면 adb를 부르지 않고 아이폰으로, 아니면 `adb devices`에 있을 때 안드로이드로 정합니다.
+
+- **추상화:** `batch` 단계와 스크립트는 `Phone` 트레이트(`src/platform.rs`)만 보고 동작합니다. 아이폰의 `Session`은 모든 호출을 기존 메서드에 그대로 넘기므로 iOS 경로의 동작은 바뀌지 않습니다. 안드로이드 구현은 `src/android/`에 있습니다.
+- **읽기:** `adb exec-out uiautomator dump /dev/tty`, XML이 나오지 않으면 `/data/local/tmp`의 파일로 덤프한 뒤 `cat`하고 지웁니다. 덤프는 UI가 멈출 때(idle)까지 기다린 뒤 나오므로 한 번에 2.3~2.5초가 걸리고, 그 대신 입력 뒤 한 번 읽으면 멈춘 화면입니다. 화면 크기는 `wm size`(override 우선), 배율은 `wm density / 160`이며 처음 한 번 읽어 둡니다. 앞에 있는 앱은 덤프의 첫 `package`이고, pid는 `pidof`로 한 번 찾아 실행(`launch`) 전까지 기억합니다.
+- **입력:** 탭은 `input tap`, 길게 누르기는 같은 점의 `input swipe`, 두 번 누르기는 `input tap` 두 번입니다. 일반 `swipe`는 `input swipe`(속도로 관성이 생김), `scroll`과 `--drag`는 `input motionevent`의 DOWN → MOVE 여러 번 → 0.25초 멈춤 → UP으로 보내 관성 없이 손가락 거리만큼 움직입니다(API 29 미만은 `input swipe`). 키는 `input keyevent`, 조합 키는 `input keycombination`(API 33 이상)입니다.
+- **결과 판단:** adb가 기기에 닿지 못했다고 말하면(`error: device … not found`, `unauthorized`, `offline`) `not_sent`, `input`이 예외를 출력하면 거부된 것이므로 `not_sent` / `input_rejected`, 그 밖에 입력 명령이 실패하거나 시간 안에 끝나지 않으면 `unknown`입니다.
+- **글 입력:** `input text`는 출력 가능한 ASCII만 정확히 입력하므로 그 밖의 글자는 보내지 않고 `unsupported_text`로 돌려줍니다. 공백은 `%s`로 바꾸고 셸 따옴표로 감쌉니다. 클립보드 붙여넣기는 시험한 Android 13에 셸 클립보드 명령(`cmd clipboard`)이 없어 구현하지 않았습니다.
+- **앱:** 실행은 `cmd package resolve-activity`로 런처 액티비티를 찾아 `am start -a MAIN -c LAUNCHER -n <패키지/액티비티>`, `--restart`는 그 앞에 `am force-stop`입니다. 목록은 `cmd package query-activities`(런처 앱)와 `pm list packages -3`(사용자 설치 앱)을 합칩니다.
+
+구현: [platform.rs](../src/platform.rs), [android/session.rs](../src/android/session.rs), [android/uia.rs](../src/android/uia.rs), [android/adb.rs](../src/android/adb.rs).

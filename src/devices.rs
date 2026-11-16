@@ -57,7 +57,9 @@ pub async fn cmd_devices(only: Option<String>) -> Res {
             connection: "wifi".into(),
         });
     }
+    let (android, android_error) = crate::android::devices::entries(chosen.as_deref()).await;
     if list.is_empty()
+        && android.is_empty()
         && let Some(e) = &discovery_error
     {
         return Err(Fail::not_sent("usbmuxd_unreachable", e));
@@ -67,7 +69,7 @@ pub async fn cmd_devices(only: Option<String>) -> Res {
     for d in &list {
         let contact = chosen.as_ref().is_none_or(|c| *c == d.udid);
         let listed = cached.as_ref() != Some(&d.udid);
-        let mut entry = json!({ "udid": d.udid, "connection": d.connection,
+        let mut entry = json!({ "udid": d.udid, "platform": "ios", "connection": d.connection,
             "source": if listed { "usbmuxd" } else { "cached_wifi_address" },
             "transport": if d.connection == "wifi" { "tcp" } else { "usbmuxd" },
             "listed_by_usbmuxd": listed });
@@ -124,8 +126,12 @@ pub async fn cmd_devices(only: Option<String>) -> Res {
         }
         out.push(entry);
     }
-    Ok(
+    out.extend(android);
+    let mut result =
         fields! { "count": out.len(), "selected": chosen, "devices": out,
-        "discovery_error": discovery_error, "discovery_warnings": found.warnings },
-    )
+        "discovery_error": discovery_error, "discovery_warnings": found.warnings };
+    if let Some(e) = android_error {
+        result.insert("adb_error".into(), json!(e));
+    }
+    Ok(result)
 }

@@ -31,6 +31,7 @@ async fn accepted_input_is_never_replayed_after_a_lost_reply() {
             .args(["--udid", &id])
             .args(&args)
             .env("PHONE_STATE_DIR", &dir)
+            .env("ADB", "/nonexistent/adb")
             .env("PHONE_CONFIG_DIR", dir.join("config"))
             .env_remove("PHONE_TRACE")
             .env_remove("IPH_TRACE")

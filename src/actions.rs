@@ -117,7 +117,7 @@ pub struct TypeArgs {
 
 /// Observations before Return. Reading a value is distinct from seeing it
 /// change, and neither proves that it equals the caller's intended text.
-struct TypeObservation {
+pub(crate) struct TypeObservation {
     before: Option<String>,
     value: Option<String>,
     changed: Option<bool>,
@@ -125,7 +125,7 @@ struct TypeObservation {
 }
 
 impl TypeObservation {
-    fn new(args: &TypeArgs, before: Option<String>, value: Option<String>) -> Self {
+    pub(crate) fn new(args: &TypeArgs, before: Option<String>, value: Option<String>) -> Self {
         let changed = before.as_ref().zip(value.as_ref()).map(|(a, b)| a != b);
         let retry_hint = t(
             "입력이 반영되었을 수 있습니다. 자동으로 재입력하지 말고 `phone read`나 스크린샷으로 확인하세요.",
@@ -178,11 +178,11 @@ impl TypeObservation {
         }
     }
 
-    fn can_submit(&self) -> bool {
+    pub(crate) fn can_submit(&self) -> bool {
         self.warning.is_none()
     }
 
-    fn result(
+    pub(crate) fn result(
         self,
         args: &TypeArgs,
         field: &Element,
@@ -343,7 +343,7 @@ pub fn resolve_one<'a>(sel: &Selector, screen: &'a Screen) -> Res<&'a Element> {
 }
 
 /// A point inside the visible part of `el` that no other element covers.
-fn tap_point(el: &Element, screen: &Screen) -> Res<(f64, f64)> {
+pub(crate) fn tap_point(el: &Element, screen: &Screen) -> Res<(f64, f64)> {
     let frame = el.frame.ok_or_else(|| {
         Fail::not_sent("no_frame", "the element has no position on screen").with("element", brief(el))
     })?;
@@ -395,12 +395,12 @@ fn tap_point(el: &Element, screen: &Screen) -> Res<(f64, f64)> {
         .with("covered_by", blocker.map(brief).unwrap_or(Value::Null)))
 }
 
-fn nfc(s: &str) -> String {
+pub(crate) fn nfc(s: &str) -> String {
     s.nfc().collect()
 }
 
 /// The app now in front, when it is not the one that was in front before.
-fn app_changed(before: &Screen, after: &Screen) -> Option<Value> {
+pub(crate) fn app_changed(before: &Screen, after: &Screen) -> Option<Value> {
     let was: Vec<i64> = before.apps.iter().map(|a| a.pid).collect();
     let now = after.apps.first()?;
     (!was.contains(&now.pid)).then(|| json!({ "name": now.name, "pid": now.pid }))
@@ -1156,8 +1156,40 @@ impl Session {
         Ok(fields! { "path": args.path, "bytes": png.len() })
     }
 
+    /// Whether the one element `sel` finds on `screen` is still where that
+    /// reading put it, asked of the phone directly (tens of milliseconds where
+    /// a fresh reading takes over a second). A target on the move is asked
+    /// again until two answers agree. False sends `settle_target` to full
+    /// readings: no single match, no answer, or the element is gone.
+    pub(crate) async fn held_still(&mut self, sel: &Selector, screen: &Screen) -> bool {
+        let el = match dedupe_targets(sel.find(screen)).as_slice() {
+            [one] => (*one).clone(),
+            _ => return false,
+        };
+        let (Some(key), Some(frame)) = (el.key, el.frame) else { return false };
+        let round = |r: &Rect| (r.x.round() as i64, r.y.round() as i64, r.w.round() as i64, r.h.round() as i64);
+        let mut last = round(&frame);
+        for _ in 0..8 {
+            let Some(ax) = self.ax.as_mut() else { return false };
+            let now = ax
+                .ask(key, attrs::FRAME, Duration::from_secs(1))
+                .await
+                .and_then(|v| v.get("NS.rectval").and_then(|r| r.as_str()).and_then(Rect::parse));
+            let Some(now) = now.map(|r| round(&r)) else { return false };
+            if now.2 == 0 && now.3 == 0 {
+                return false;
+            }
+            if now == last {
+                return true;
+            }
+            last = now;
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        false
+    }
+
     /// The text element that has the keyboard, if exactly one does.
-    fn focused_field(screen: &Screen) -> Option<&Element> {
+    pub(crate) fn focused_field(screen: &Screen) -> Option<&Element> {
         let mut focused = screen.elements.iter().filter(|e| e.focused);
         let first = focused.next()?;
         focused.next().is_none().then_some(first)

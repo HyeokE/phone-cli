@@ -27,8 +27,8 @@ use serde_json::{Map, Value, json};
 
 use crate::{
     actions::{Target, TapArgs, brief, parse_args, parse_target},
-    ax::tree::{BuildOptions, Screen},
-    device::session::Session,
+    platform::Phone,
+    steps::Steps,
     fields,
     i18n::t,
     paths,
@@ -592,12 +592,12 @@ pub fn finish(ended: Ended, state: &RunState) -> Res {
 // The real phone
 // ---------------------------------------------------------------------------
 
-struct PhoneHost<'a> {
-    session: &'a mut Session,
+struct PhoneHost<'a, P: Phone> {
+    session: &'a mut P,
     state: RunState,
 }
 
-impl PhoneHost<'_> {
+impl<P: Phone> PhoneHost<'_, P> {
     async fn tap(&mut self, args: Value) -> Res {
         let s = &mut *self.session;
         let Value::Object(mut map) = args else {
@@ -672,7 +672,7 @@ impl PhoneHost<'_> {
     }
 }
 
-impl ScriptHost for PhoneHost<'_> {
+impl<P: Phone> ScriptHost for PhoneHost<'_, P> {
     async fn call(&mut self, cmd: &str, args: Value) -> Value {
         let started = Instant::now();
         let result = match self.state.prepare(cmd, args) {
@@ -716,17 +716,18 @@ pub fn request(code: &str, args: &Map<String, Value>, saved: Option<(&str, &str)
     req
 }
 
-impl Session {
+/// Scripts on any phone (see [`Phone`]).
+#[allow(async_fn_in_trait)]
+pub trait Scripts: Phone + Sized {
     /// What the latest reading showed, for a failure with nothing of its own to show.
     fn last_seen(&self) -> Option<Value> {
-        let (_, dump, _) = self.ax.as_ref()?.latest()?;
-        Some(Screen::build(&dump, BuildOptions::default()).summary(12))
+        Some(self.latest_screen()?.summary(12))
     }
 
-    pub async fn cmd_script(&mut self, code: &str, args: &Map<String, Value>) -> Res {
+    async fn cmd_script(&mut self, code: &str, args: &Map<String, Value>) -> Res {
         let limits = Limits {
-            timeout: Duration::from_secs(self.config.script.timeout_secs.clamp(1, MAX_TIMEOUT_SECS)),
-            memory: (self.config.script.memory_mb.clamp(8, 1024) as usize) << 20,
+            timeout: Duration::from_secs(self.config().script.timeout_secs.clamp(1, MAX_TIMEOUT_SECS)),
+            memory: (self.config().script.memory_mb.clamp(8, 1024) as usize) << 20,
         };
         let mut host = PhoneHost { session: self, state: RunState::default() };
         let ended = run(&mut host, code, args, &limits).await;
@@ -742,7 +743,7 @@ impl Session {
     }
 
     /// Serve a `script` request (see [`request`]).
-    pub async fn serve_script(&mut self, req: &Value) -> Res {
+    async fn serve_script(&mut self, req: &Value) -> Res {
         let code = req
             .get("code")
             .and_then(|v| v.as_str())
@@ -760,6 +761,20 @@ impl Session {
             }
             Err(f) => Err(saved.into_iter().fold(f, |f, (k, v)| f.with(k, v))),
         }
+    }
+}
+
+impl<T: Phone> Scripts for T {}
+
+/// The iPhone's script entry points, as before the [`Phone`] abstraction.
+impl crate::device::session::Session {
+    pub async fn cmd_script(&mut self, code: &str, args: &Map<String, Value>) -> Res {
+        Box::pin(Scripts::cmd_script(self, code, args)).await
+    }
+
+    /// Serve a `script` request (see [`request`]).
+    pub async fn serve_script(&mut self, req: &Value) -> Res {
+        Box::pin(Scripts::serve_script(self, req)).await
     }
 }
 
