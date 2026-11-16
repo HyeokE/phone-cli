@@ -35,7 +35,7 @@ $ iph tap "General"
 |---|---|
 | Host | macOS, Windows 10/11 (x64) |
 | Device | A real iPhone, **iOS 27 or later** (verified on **one iPhone 15 Pro Max with iOS 27.0.1** only, Korean interface). Touch and text input go through the phone's screen-sharing service (`com.apple.coredevice.displayservice`, new in iOS 27), so input is not expected to work on iOS 26 or earlier (not tried) |
-| Connection | USB or the same Wi-Fi (verified over Wi-Fi on the Mac, over USB on Windows) |
+| Connection | USB or the same LAN (the computer may use Ethernet; verified over USB and Wi-Fi on Windows) |
 | Out of scope | Simulators, Android, Linux hosts, landscape |
 
 On Windows, `doctor`, reading, touch and scripts were checked with one iPhone19,4 on iOS 27.2 over USB.
@@ -101,12 +101,32 @@ The same Wi-Fi alone is not enough. On supported devices, `EnableWifiConnections
 
 **Notification banners take taps near the top of the screen.** Banners cover the top of the screen and are not part of the accessibility tree. A tap near the top then lands on the banner and opens another app (this happened once during development). For long unattended work turn Do Not Disturb on with `iph dnd on`, and put it back with `iph dnd off` afterwards. Details: [Do Not Disturb](#do-not-disturb) below.
 
+### Direct IP when automatic discovery fails
+
+The PC may use Ethernet while the iPhone uses Wi-Fi on the same LAN; the PC does not need a Wi-Fi adapter. On some Windows installations, Apple's service has no Wi-Fi entry even though the paired phone is reachable ([issue #2](https://github.com/HyunSeob/iphone-cli/issues/2)). Register a direct address:
+
+```sh
+iph devices                                      # while USB is attached: note the UDID
+iph --udid <UDID> connect --ip <iPhone-IP>         # after unplugging USB
+iph --udid <UDID> devices
+iph --udid <UDID> read
+```
+
+Find the phone's IP in Settings → Wi-Fi → the network's info button. Use its IPv4 address, or a non-link-local IPv6 address. USB trust on this computer and the Apple device service are still required. `connect` starts a paired session, reads the reported UDID, and saves the address only when it matches the selected phone. A failed check preserves the previous address. A successful registration stops an existing daemon so the next command opens a fresh connection.
+
+`address_saved: true` and `udid_verified: true` confirm address registration, not developer-service readiness. `devices` includes the selected saved-address candidate with `source: "cached_wifi_address"` and `listed_by_usbmuxd: false`; it checks the paired identity before reporting `ready: true`. `doctor` can still check the required services; its wireless discovery check does not claim that Apple's missing entry was repaired. USB remains preferred when attached.
+
+Subsequent CLI calls, MCP tools and scripts share this address. Keep the same `--udid`, `IPH_UDID`, or configured `udid`; unselected saved addresses are not automatically chosen. MCP also offers `iph_connect` with `{"ip":"192.168.1.20"}` for its selected phone. If DHCP changes the phone's address, run `connect` with the new address. This path does not scan the LAN or depend on multicast discovery.
+
+For automatic discovery, issue #2 also describes the optional [netmuxd](https://github.com/jkcoxson/netmuxd) 0.4.3 workaround: run it on a separate local port with `--plist-storage` pointing to Apple's pairing directory and `--upstream-usbmuxd 127.0.0.1:27015`, then point `USBMUXD_SOCKET_ADDRESS` to that port. Its discovery still depends on mDNS reaching the PC.
+
 ## Commands
 
 Every command prints JSON; add `--human` for people. The device is chosen by `--udid`, then `IPH_UDID`, then `udid` in `~/.config/iph/config.toml`, then the only connected phone. With several phones and none chosen, you get an error with the list.
 
 | Command | Does |
 |---|---|
+| `iph connect --ip <IP>` | Verify and save the selected paired phone's IP |
 | `iph devices` | Connected phones, iOS version, connection, readiness |
 | `iph setup` / `iph doctor` | Preparation and checks |
 | `iph read [--app] [--all] [--full] [--raw] [--max-age ms]` | Elements on screen. `--all` includes off-screen ones, `--full` adds identifiers (about 0.5 s more), `--raw` attaches every numbered attribute |
@@ -290,7 +310,7 @@ ln -s "$PWD/skills/iph" ~/.claude/skills/iph                    # Claude Code
 ln -s "$PWD/skills/iph" ~/.codex/skills/iph                     # Codex
 ```
 
-Tools: `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. Arguments and results are the same as the CLI's. `iph_script` takes `code` (JavaScript) and `args`; `iph_run` takes `name` and `args`. Guidance for agents: [skills/iph/SKILL.md](skills/iph/SKILL.md).
+Tools: `iph_connect`, `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. Arguments and results are the same as the CLI's. `iph_script` takes `code` (JavaScript) and `args`; `iph_run` takes `name` and `args`. Guidance for agents: [skills/iph/SKILL.md](skills/iph/SKILL.md).
 
 ## Speed
 

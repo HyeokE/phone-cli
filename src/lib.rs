@@ -8,6 +8,7 @@ pub mod ax;
 pub mod client;
 pub mod clock;
 pub mod config;
+pub mod connect;
 pub mod daemon;
 pub mod ddi;
 pub mod device;

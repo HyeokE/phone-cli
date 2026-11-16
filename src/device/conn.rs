@@ -6,7 +6,7 @@
 
 use std::{net::IpAddr, time::Duration, time::Instant};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use idevice::{
     IdeviceService,
     core_device_proxy::CoreDeviceProxy,
@@ -98,7 +98,7 @@ fn remember_ip(udid: &str, ip: &IpAddr) {
     }
 }
 
-fn recall_ip(udid: &str) -> Option<IpAddr> {
+pub(crate) fn recall_ip(udid: &str) -> Option<IpAddr> {
     std::fs::read_to_string(ip_cache(udid)).ok()?.trim().parse().ok()
 }
 
@@ -194,17 +194,7 @@ pub async fn route(udid: &str) -> Result<Route> {
         bail!("device {udid} is not connected (usbmuxd does not list it)");
     };
     events::record("route", "fallback", 0, json!({ "udid": udid, "address": ip, "source": "cached_wifi_address" }));
-    let mut mux = mux_connect().await?;
-    let pairing_file = mux
-        .get_pair_record(udid)
-        .await
-        .map_err(|e| anyhow!("device {udid} is not listed and has no pairing record: {e:?}"))?;
-    let provider = TcpProvider {
-        addr: ip,
-        scope_id: None,
-        pairing_file,
-        label: LABEL.into(),
-    };
+    let provider = direct_provider(udid, ip).await?;
     // Without it the phone refuses its services over Wi-Fi (`tunnel_failed`,
     // TLS closed without close_notify). A failure is already recorded by `step`;
     // lockdown alone still works without a heartbeat.
@@ -214,6 +204,13 @@ pub async fn route(udid: &str) -> Result<Route> {
         provider: Box::new(provider),
         heartbeat,
     })
+}
+
+pub(crate) async fn direct_provider(udid: &str, ip: IpAddr) -> Result<TcpProvider> {
+    let mut mux = mux_connect().await?;
+    let pairing_file = step("usbmuxd.ReadPairRecord", mux.get_pair_record(udid)).await
+        .with_context(|| format!("no readable pairing record for device {udid}"))?;
+    Ok(TcpProvider { addr: ip, scope_id: None, pairing_file, label: LABEL.into() })
 }
 
 pub struct Tunnel {

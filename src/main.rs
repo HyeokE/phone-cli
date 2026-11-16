@@ -4,7 +4,7 @@ use std::{io::Read, time::Instant};
 
 use clap::{Parser, Subcommand};
 use iphone_cli::{
-    client, clock, daemon, devices, diagnose, events, fields, human,
+    client, clock, connect, daemon, devices, diagnose, events, fields, human,
     mcp,
     reply::{Fail, envelope},
     script, setup,
@@ -38,6 +38,8 @@ struct Cli {
 enum Cmd {
     /// List connected iPhones.
     Devices,
+    /// Verify and save the selected paired iPhone's IP when automatic discovery fails.
+    Connect(connect::Args),
     /// Save connection diagnostics and optional reproduction output for a GitHub issue.
     Diagnose(diagnose::Args),
     /// Walk through the one-time preparation of a phone.
@@ -292,6 +294,11 @@ async fn run(cli: Cli) -> i32 {
     };
 
     let (cmd, args): (&str, Value) = match cli.command {
+        Cmd::Connect(args) => {
+            let v = envelope(connect::run(&udid, args).await, started);
+            print(&v, human_out, "connect");
+            return exit_code(&v);
+        }
         Cmd::Daemon => {
             return match daemon::run(udid).await {
                 Ok(()) => 0,

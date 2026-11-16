@@ -38,7 +38,7 @@ $ iph run settings-version
 |---|---|
 | 호스트 | macOS, Windows 10 · 11 (x64) |
 | 기기 | 실제 아이폰, **iOS 27 이상** (검증은 **iPhone 15 Pro Max · iOS 27.0.1 한 대**에서만 했습니다). 터치 · 입력이 폰의 화면 공유 서비스(`com.apple.coredevice.displayservice`, iOS 27부터)를 거치기 때문에 iOS 26 이하에서는 입력이 안 될 것으로 봅니다 (돌려 보지는 않았습니다) |
-| 연결 | USB 또는 같은 Wi-Fi (맥은 Wi-Fi로, 윈도는 USB로만 검증) |
+| 연결 | USB 또는 같은 LAN (PC는 유선이어도 됨. 윈도 USB·Wi-Fi 검증) |
 | 범위 밖 | 시뮬레이터, 안드로이드, Linux 호스트, 가로 화면 |
 
 윈도는 iPhone19,4 · iOS 27.2 한 대를 USB로 꽂아 `doctor` · 읽기 · 터치 · 스크립트를 확인했습니다.
@@ -104,12 +104,32 @@ cargo install --path .        # ~/.cargo/bin/iph
 
 **알림 배너는 화면 위쪽 탭을 가로챕니다.** 배너는 화면 위쪽을 덮고 접근성 트리에는 나오지 않습니다. 그때 화면 위쪽을 누르면 배너가 눌려 다른 앱이 열립니다 (만드는 동안 실제로 한 번 겪었습니다). 오래 맡길 때는 `iph dnd on`으로 방해금지 모드를 켜 두고, 끝나면 `iph dnd off`로 되돌리세요. 자세한 내용은 아래 [방해금지 모드](#방해금지-모드).
 
+### 자동 검색에 실패할 때 IP 직접 연결
+
+PC는 유선 LAN, 아이폰은 같은 LAN의 Wi-Fi에 연결되어 있어도 됩니다. PC에 Wi-Fi 어댑터가 필요하지 않습니다. 일부 Windows 환경에서는 신뢰한 아이폰에 직접 접속할 수 있어도 Apple 서비스에 Wi-Fi 기기가 나타나지 않습니다([이슈 #2](https://github.com/HyunSeob/iphone-cli/issues/2)). 이때 직접 주소를 등록합니다.
+
+```sh
+iph devices                                      # USB 연결 상태에서 UDID 확인
+iph --udid <UDID> connect --ip <아이폰-IP>          # USB를 뺀 뒤 실행
+iph --udid <UDID> devices
+iph --udid <UDID> read
+```
+
+아이폰 설정 → Wi-Fi → 연결한 네트워크의 정보 버튼에서 IPv4 주소를 확인하세요. 링크 로컬이 아닌 IPv6 주소도 사용할 수 있습니다. 이 컴퓨터에서 USB로 신뢰한 기록과 Apple 기기 연결 서비스가 필요합니다. `connect`는 페어링 세션에서 읽은 UDID가 선택한 폰과 일치할 때만 주소를 저장합니다. 검증에 실패하면 이전 주소를 유지합니다. 등록에 성공하면 기존 상주 프로세스를 종료해 다음 명령이 새 연결을 엽니다.
+
+`address_saved: true`·`udid_verified: true`는 주소 등록 확인이며 개발자 서비스 준비 완료를 뜻하지 않습니다. `devices`는 선택한 저장 주소를 `source: "cached_wifi_address"`, `listed_by_usbmuxd: false`로 표시하고, 페어링 세션의 기기 식별까지 확인한 뒤 `ready: true`를 보고합니다. 준비 상태는 `doctor`로 검사할 수 있으며, 무선 발견 항목은 Apple 서비스의 목록이 복구됐다고 표시하지 않습니다. USB를 연결하면 기존처럼 USB가 우선입니다.
+
+이후 CLI·MCP·스크립트는 같은 저장 주소를 사용합니다. `--udid`·`IPH_UDID`·설정 파일의 `udid`로 같은 폰을 선택하세요. 선택하지 않은 저장 주소를 자동으로 고르지는 않습니다. MCP에서는 선택한 폰에 `iph_connect`를 `{"ip":"192.168.1.20"}`로 호출할 수도 있습니다. DHCP로 아이폰의 IP가 바뀌면 새 주소로 `connect`를 다시 실행하세요. 이 경로는 LAN 전체를 검색하거나 멀티캐스트 발견에 의존하지 않습니다.
+
+자동 검색을 쓰려면 이슈 #2에 보고된 선택 사항인 [netmuxd](https://github.com/jkcoxson/netmuxd) 0.4.3 우회도 있습니다. 별도 로컬 포트에 `--plist-storage`로 Apple 페어링 폴더를 지정하고 `--upstream-usbmuxd 127.0.0.1:27015`로 기존 Apple 서비스를 연결한 뒤, `USBMUXD_SOCKET_ADDRESS`를 그 포트로 지정합니다. 이 방법의 자동 검색은 PC에 mDNS가 도달해야 동작합니다.
+
 ## 명령
 
 모든 명령은 JSON을 냅니다. 사람이 볼 때는 `--human`. 기기는 `--udid`, `IPH_UDID`, `~/.config/iph/config.toml`의 `udid`, 연결된 폰이 하나면 그 폰 순서로 고릅니다. 폰이 여럿인데 고르지 않으면 목록과 함께 오류를 냅니다.
 
 | 명령 | 하는 일 |
 |---|---|
+| `iph connect --ip <IP>` | 선택한 신뢰 기기의 IP를 검증하고 저장 |
 | `iph devices` | 연결된 폰, iOS 버전, 연결 방식, 준비 상태 |
 | `iph setup` / `iph doctor` | 준비 · 점검 |
 | `iph read [--app] [--all] [--full] [--raw] [--max-age ms]` | 화면 요소 목록. `--all` 화면 밖 포함, `--full` 식별자 포함(약 0.5초 더), `--raw` 번호 붙은 속성 전부 |
@@ -293,7 +313,7 @@ ln -s "$PWD/skills/iph" ~/.claude/skills/iph                    # Claude Code
 ln -s "$PWD/skills/iph" ~/.codex/skills/iph                     # Codex
 ```
 
-도구: `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. 인자와 결과는 CLI와 같습니다. `iph_script`는 `code`(자바스크립트)와 `args`를, `iph_run`은 `name`과 `args`를 받습니다. 에이전트용 안내는 [skills/iph/SKILL.md](skills/iph/SKILL.md)에 있습니다.
+도구: `iph_connect`, `iph_read`, `iph_find`, `iph_tap`, `iph_swipe`, `iph_scroll`, `iph_type`, `iph_key`, `iph_button`, `iph_launch`, `iph_apps`, `iph_screenshot`, `iph_batch`, `iph_script`, `iph_run`, `iph_scripts`, `iph_doctor`, `iph_dnd`. 인자와 결과는 CLI와 같습니다. `iph_script`는 `code`(자바스크립트)와 `args`를, `iph_run`은 `name`과 `args`를 받습니다. 에이전트용 안내는 [skills/iph/SKILL.md](skills/iph/SKILL.md)에 있습니다.
 
 ## 속도
 

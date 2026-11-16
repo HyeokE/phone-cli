@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::{
-    client,
+    client, connect,
     reply::{Fail, envelope},
     script,
 };
@@ -45,6 +45,12 @@ fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> 
 fn tools() -> Vec<Value> {
     let selector = json!({ "description": SELECTOR_DOC, "type": ["string", "object"] });
     vec![
+        tool(
+            "iph_connect",
+            "Verify and save the selected paired iPhone's IP address when automatic discovery fails. Requires prior USB trust on this computer. Checks a paired session and reported UDID before saving. Subsequent tools and scripts use the address; this does not establish developer-service readiness or repair Apple's discovery list.",
+            json!({ "ip": { "type": "string", "description": "The iPhone's IPv4 or non-link-local IPv6 address from Settings > Wi-Fi > network info." } }),
+            &["ip"],
+        ),
         tool(
             "iph_read",
             "Read the iPhone's current screen as a list of elements (id, role, label, value, frame in points, traits, enabled). \
@@ -190,6 +196,10 @@ async fn call(udid: &str, name: &str, args: Value) -> Value {
     let started = std::time::Instant::now();
     let args = if args.is_null() { json!({}) } else { args };
     match name {
+        "iph_connect" => match serde_json::from_value::<connect::Args>(args) {
+            Ok(args) => envelope(connect::run(udid, args).await, started),
+            Err(e) => envelope(Err(Fail::invalid(e.to_string())), started),
+        },
         "iph_scripts" => envelope(script::cmd_scripts(), started),
         "iph_script" | "iph_run" => match script_request(name, &args) {
             Ok(request) => client::request(udid, "script", request).await,
@@ -336,7 +346,7 @@ mod tests {
             .collect();
         for expected in [
             "iph_read", "iph_find", "iph_tap", "iph_swipe", "iph_scroll", "iph_type", "iph_button",
-            "iph_launch", "iph_batch", "iph_script", "iph_run", "iph_scripts", "iph_doctor",
+            "iph_launch", "iph_batch", "iph_script", "iph_run", "iph_scripts", "iph_doctor", "iph_connect",
         ] {
             assert!(names.contains(&expected.to_string()), "missing {expected}");
         }
@@ -361,6 +371,17 @@ mod tests {
             assert_eq!(script_request("iph_script", &bad).unwrap_err().code, "invalid_argument", "{bad}");
         }
         assert_eq!(script_request("iph_run", &json!({"name": "nope"})).unwrap_err().code, "script_not_found");
+    }
+
+    #[tokio::test]
+    async fn connect_rejects_missing_invalid_and_extra_arguments_before_contacting_a_phone() {
+        for args in [json!({}), json!({"ip": "not-an-ip"}),
+                     json!({"ip": "192.0.2.1", "submit": true})] {
+            let result = call("NO-PHONE", "iph_connect", args).await;
+            assert_eq!(result["ok"], false);
+            assert_eq!(result["outcome"], "not_sent");
+            assert_eq!(result["error"]["code"], "invalid_argument");
+        }
     }
 
     #[tokio::test]

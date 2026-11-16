@@ -110,6 +110,10 @@ pub fn render(cmd: &str, v: &Value) -> String {
         return out.join("\n");
     }
     match cmd {
+        "connect" => {
+            out.push(format!("✓ {}  wifi  {}  UDID verified, address saved", s(&v["udid"]), s(&v["ip"])));
+            out.push(s(&v["hint"]));
+        }
         "read" | "find" => {
             if cmd == "read" {
                 let apps: Vec<String> = v["apps"]
