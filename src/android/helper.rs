@@ -51,11 +51,101 @@ pub fn kill_leftovers_cmd() -> String {
     )
 }
 
-/// End helpers left on the phone (a daemon that died, an earlier build).
+/// Who runs the helper now: `<host> <daemon pid>`, written before a helper
+/// starts. A second daemon for the same phone (another state folder, a
+/// second binary) must not kill a helper a live daemon is using: each kill
+/// would cut the other daemon's command, and they would take turns killing.
+pub const OWNER_FILE: &str = "/data/local/tmp/phone-helper.owner";
+
+/// This daemon's owner line: host name and pid.
+pub fn owner_line() -> String {
+    format!("{} {}", host_name(), std::process::id())
+}
+
+fn host_name() -> String {
+    #[cfg(unix)]
+    {
+        let mut buf = [0u8; 256];
+        // SAFETY: the buffer outlives the call and its length is passed.
+        let r = unsafe { libc::gethostname(buf.as_mut_ptr().cast(), buf.len()) };
+        if r == 0 {
+            let end = buf.iter().position(|b| *b == 0).unwrap_or(buf.len());
+            let name = String::from_utf8_lossy(&buf[..end]).trim().to_string();
+            if !name.is_empty() {
+                return name;
+            }
+        }
+    }
+    std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_else(|_| "unknown".into())
+}
+
+/// Whether a process with this pid runs on this computer.
+fn local_pid_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        // SAFETY: signal 0 only checks that the process exists.
+        let r = unsafe { libc::kill(pid as libc::pid_t, 0) };
+        r == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        false
+    }
+}
+
+/// The other live daemon on this computer the recorded owner names, if the
+/// helper running on the phone belongs to one. `owner` is the file's text,
+/// `running` whether any helper process is up there.
+pub fn live_other_owner(owner: &str, running: bool, me: &str, alive: impl Fn(u32) -> bool) -> Option<u32> {
+    if !running {
+        return None;
+    }
+    let line = owner.lines().next()?.trim();
+    if line.is_empty() || line == me {
+        return None;
+    }
+    let (host, pid) = line.rsplit_once(' ')?;
+    let my_host = me.rsplit_once(' ').map(|(h, _)| h).unwrap_or("");
+    let pid: u32 = pid.parse().ok()?;
+    // A helper started from another computer cannot be checked from here;
+    // it is treated as a leftover, as before.
+    (host == my_host && alive(pid)).then_some(pid)
+}
+
+fn probe_cmd() -> String {
+    format!(
+        "echo owner:$(cat {OWNER_FILE} 2>/dev/null); echo running:$(ps -A -o PID=,NAME= | awk '$2==\"{PROCESS_NAME}\"{{print $1}}' | head -1)"
+    )
+}
+
+/// The pid of the other live daemon whose helper is on the phone, if any.
+pub async fn other_owner(adb: &Adb) -> Option<u32> {
+    let out = adb.shell(&probe_cmd(), 10).await.ok()?;
+    let field = |k: &str| {
+        out.lines()
+            .find_map(|l| l.strip_prefix(k))
+            .map(|v| v.trim().to_string())
+            .unwrap_or_default()
+    };
+    live_other_owner(&field("owner:"), !field("running:").is_empty(), &owner_line(), local_pid_alive)
+}
+
+/// End helpers left on the phone (a daemon that died, an earlier build),
+/// unless a live daemon on this computer owns the one running (then its pid).
 /// Only one UiAutomation connection can be registered at a time, so a
 /// leftover one blocks both a new helper's snapshots and `uiautomator dump`.
-pub async fn kill_leftovers(adb: &Adb) {
+pub async fn kill_leftovers(adb: &Adb) -> Result<(), u32> {
+    if let Some(pid) = other_owner(adb).await {
+        return Err(pid);
+    }
     let _ = adb.shell(&kill_leftovers_cmd(), 10).await;
+    Ok(())
+}
+
+/// What to say when another daemon on this computer is using the phone.
+pub fn in_use_message(pid: u32) -> String {
+    format!("another phone daemon (pid {pid}) on this computer is using this phone's helper")
 }
 const MAGIC: &[u8; 2] = b"PH";
 const MAX_FRAME: usize = 32 << 20;
@@ -272,9 +362,13 @@ impl Helper {
         // One shell: the hash of what is there, and old helpers put down so
         // their UiAutomation connection does not block ours (only one can be
         // registered at a time).
+        if let Some(pid) = other_owner(adb).await {
+            return Err(in_use_message(pid));
+        }
         let probe = format!(
-            "sha256sum {REMOTE_JAR} 2>/dev/null; {}",
-            kill_leftovers_cmd()
+            "sha256sum {REMOTE_JAR} 2>/dev/null; {}; echo '{}' > {OWNER_FILE}",
+            kill_leftovers_cmd(),
+            owner_line()
         );
         let have = adb.shell(&probe, 15).await.map_err(|e| e.message())?;
         if have.split_whitespace().next() != Some(want.as_str()) {
@@ -745,7 +839,22 @@ mod tests {
     }
 
     #[test]
-    fn leftovers_are_killed_by_pid_not_by_pattern() {
+    fn a_live_daemon_here_keeps_its_helper() {
+        let me = "mac 100";
+        let alive = |p: u32| p == 200;
+        // Another live daemon on this computer: hands off.
+        assert_eq!(live_other_owner("mac 200\n", true, me, alive), Some(200));
+        // Ours, a dead one, nothing running, no record, another computer: a leftover.
+        assert_eq!(live_other_owner("mac 100", true, me, alive), None);
+        assert_eq!(live_other_owner("mac 300", true, me, alive), None);
+        assert_eq!(live_other_owner("mac 200", false, me, alive), None);
+        assert_eq!(live_other_owner("", true, me, alive), None);
+        assert_eq!(live_other_owner("other-host 200", true, me, alive), None);
+        assert_eq!(live_other_owner("garbage", true, me, alive), None);
+    }
+
+    #[test]
+        fn leftovers_are_killed_by_pid_not_by_pattern() {
         let cmd = kill_leftovers_cmd();
         assert!(cmd.contains("$2==\"phone-helper\""), "{cmd}");
         assert!(!cmd.contains("pkill"), "{cmd}");

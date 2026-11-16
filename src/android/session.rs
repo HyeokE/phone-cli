@@ -629,8 +629,13 @@ impl AndroidSession {
                 // dropped while stuck) holds the one UiAutomation connection
                 // and makes uiautomator fail ("Killed"). Ours is not up when
                 // this path runs, so any helper there is a leftover.
-                if self.helper.is_none() {
-                    helper::kill_leftovers(&self.adb).await;
+                if self.helper.is_none()
+                    && let Err(pid) = helper::kill_leftovers(&self.adb).await
+                {
+                    return Err(Fail::not_sent("phone_in_use", helper::in_use_message(pid)).hint(t(
+                        "다른 phone 상주 프로세스가 이 폰을 쓰고 있습니다(다른 세션이나 다른 PHONE_STATE_DIR). 그쪽 작업이 끝난 뒤 다시 시도하거나, 같은 설정으로 같은 상주 프로세스를 쓰세요.",
+                        "Another phone daemon is using this phone (another session or another PHONE_STATE_DIR). Try again when it is done, or use the same daemon.",
+                    )));
                 }
                 tokio::time::sleep(Duration::from_millis(300)).await;
             }

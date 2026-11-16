@@ -82,6 +82,16 @@ enum Cmd {
         #[arg(long)]
         all: bool,
     },
+    /// Wait until an element shows, or with --gone until it goes away. Sends no input.
+    Wait {
+        selector: String,
+        /// Wait for the element to disappear instead.
+        #[arg(long)]
+        gone: bool,
+        /// Give up after this many milliseconds (default 8000, at most 80000).
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
     /// Tap an element (selector) or a point (x,y).
     Tap {
         target: String,
@@ -277,6 +287,15 @@ async fn run(cli: Cli) -> i32 {
             print(&v, human_out, "scripts");
             return exit_code(&v);
         }
+        Cmd::Mcp { tools } => {
+            return match mcp::serve(client::resolve_udid(cli.udid.clone()).await.ok(), tools.clone()).await {
+                Ok(()) => 0,
+                Err(e) => {
+                    eprintln!("phone mcp: {e:#}");
+                    1
+                }
+            };
+        }
         Cmd::Devices => {
             let v = envelope(devices::cmd_devices(cli.udid.clone()).await, started);
             print(&v, human_out, "devices");
@@ -307,20 +326,12 @@ async fn run(cli: Cli) -> i32 {
             print(&v, human_out, "connect");
             return exit_code(&v);
         }
+        Cmd::Mcp { .. } => unreachable!("served before a phone is chosen"),
         Cmd::Daemon => {
             return match daemon::run(udid).await {
                 Ok(()) => 0,
                 Err(e) => {
                     eprintln!("phone daemon: {e:#}");
-                    1
-                }
-            };
-        }
-        Cmd::Mcp { tools } => {
-            return match mcp::serve(udid, tools).await {
-                Ok(()) => 0,
-                Err(e) => {
-                    eprintln!("phone mcp: {e:#}");
                     1
                 }
             };
@@ -343,6 +354,9 @@ async fn run(cli: Cli) -> i32 {
             json!({ "app": app, "all": all, "full": full, "raw": raw, "max_age_ms": max_age }),
         ),
         Cmd::Find { selector, all } => ("find", json!({ "selector": selector, "all": all })),
+        Cmd::Wait { selector, gone, timeout } => {
+            ("wait", json!({ "selector": selector, "gone": gone, "timeout_ms": timeout }))
+        }
         Cmd::Tap { target, long, double, no_wait } => {
             ("tap", json!({ "target": target, "long_ms": long, "double": double, "no_wait": no_wait }))
         }

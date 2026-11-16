@@ -556,6 +556,50 @@ pub trait Steps: Phone + Sized {
         .with("screen_summary", last.map(|s| s.summary(12)).unwrap_or(Value::Null)))
     }
 
+    /// Wait until nothing on screen matches `sel` (a spinner, a sheet, a
+    /// toast going away). Sends no input.
+    async fn wait_gone(&mut self, sel: &Selector, timeout: Duration) -> Res<()> {
+        let started = Instant::now();
+        let full = sel.needs_identifier();
+        let mut fresh = Fresh::MaxAge(reuse());
+        loop {
+            let (_, screen) = self.screen(fresh, full, BuildOptions::default()).await?;
+            let found = dedupe_targets(sel.find(&screen));
+            if found.is_empty() {
+                return Ok(());
+            }
+            if started.elapsed() >= timeout {
+                return Err(Fail::not_sent(
+                    "wait_timeout",
+                    format!("{} was still on screen after {} ms", sel.describe(), timeout.as_millis()),
+                )
+                .with("element", brief(found[0]))
+                .with("screen_summary", screen.summary(12)));
+            }
+            fresh = Fresh::Force;
+        }
+    }
+
+    /// `phone wait`: until an element shows (or, with `gone`, goes away).
+    /// Only reads the screen, so it is always safe to repeat.
+    async fn cmd_wait(&mut self, args: &Value) -> Res {
+        let sel_value = args.get("selector").cloned().unwrap_or(Value::Null);
+        if sel_value.is_null() {
+            return Err(Fail::invalid("wait needs a `selector`"));
+        }
+        let sel = Selector::from_value(&sel_value).map_err(|e| Fail::invalid(e.to_string()))?;
+        let timeout = Duration::from_millis(args.get("timeout_ms").and_then(|v| v.as_u64()).unwrap_or(8000).min(80_000));
+        let gone = args.get("gone").and_then(|v| v.as_bool()).unwrap_or(false);
+        let started = Instant::now();
+        if gone {
+            Box::pin(self.wait_gone(&sel, timeout)).await?;
+            Ok(fields! { "gone": true, "waited_ms": started.elapsed().as_millis() as u64 })
+        } else {
+            let el = Box::pin(self.wait_for(&sel, timeout)).await?;
+            Ok(fields! { "element": brief(&el), "waited_ms": started.elapsed().as_millis() as u64 })
+        }
+    }
+
     /// Wait until the element a step is about to tap holds still: two
     /// readings in a row with it at the same place. A screen that has just
     /// come up may still be loading and move its rows; a tap aimed at where

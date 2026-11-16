@@ -28,6 +28,8 @@ This is a real phone with the user's accounts on it. A tap cannot be taken back,
 
 ## Android
 
+Over MCP every phone tool takes an optional `udid`, so one server can drive several phones; `phone_devices` lists them. A phone another session's daemon is using fails `phone_in_use` (Android): do not work around it, ask the user.
+
 The same commands and JSON work on an Android phone through adb; select it by its adb serial (`--udid R39N402N5SB`, `--udid 192.168.0.7:5555`). `phone devices` shows `platform: "android"`; one phone over USB and Wi-Fi appears twice with `same_device_as`, so use one serial for the whole task.
 
 - **Back:** `phone button back` (MCP `phone_button` `"back"`) is the usual way out of a screen; `home`, `recents` and `lock` exist too.
@@ -123,7 +125,7 @@ After `launch`, that app must stay in front; if another one comes up, the script
 
 ## Commands at a glance
 
-`read`, `find`, `tap`, `swipe`, `scroll`, `type`, `key`, `button`, `launch`, `apps` (bundle ids), `screenshot`, `script`, `run`, `scripts`, `batch`, `dnd`, `doctor`, `connect --ip <IP>`, `devices`, `stop`. `phone <command> --help` has the flags; add `--human` to read a result yourself.
+`read`, `find`, `wait` (until a selector shows, or `--gone` until it leaves; read-only), `tap`, `swipe`, `scroll`, `type`, `key`, `button`, `launch`, `apps` (bundle ids), `screenshot`, `script`, `run`, `scripts`, `batch`, `dnd`, `doctor`, `connect --ip <IP>`, `devices`, `stop`. `phone <command> --help` has the flags; add `--human` to read a result yourself.
 
 ## When something is off
 

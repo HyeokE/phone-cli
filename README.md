@@ -47,6 +47,7 @@ On Windows, `doctor`, reading, touch and scripts were checked with one iPhone19,
 
 The same commands, arguments and JSON results work on an Android phone through `adb`. No app is installed. By default phone-cli pushes a small helper (`phone-helper.jar`, embedded in the binary, about 22 KB) to `/data/local/tmp` and runs it with `app_process`, the way scrcpy runs its server. It reads the screen through UiAutomation, injects touches and keys, pastes text through the clipboard and names apps; it is gone after a reboot and is pushed again when its hash differs. When the helper is off or cannot run, phone-cli falls back to the shell tools: `uiautomator dump`, `input tap|swipe|motionevent|keyevent|text`, `am` / `pm` / `cmd package`, `screencap -p`. Results say which path served them in `backend` (`"helper"` or `"adb"`).
 
+- **One daemon per phone:** the helper's owner (`<host> <daemon pid>`) is recorded in `/data/local/tmp/phone-helper.owner`. A second daemon for the same phone on this computer (another `PHONE_STATE_DIR`, another binary) does not kill a helper a live daemon is using; it fails `phone_in_use` instead.
 - **Helper switch:** `[android] helper = false` in `config.toml`, or `PHONE_ANDROID_HELPER=0` for a daemon started with it, uses the shell tools only. If the helper fails it is retried later with a growing wait; meanwhile the shell tools serve. `phone stop` ends the helper on the phone, and a new one ends any left over (only one UiAutomation connection can be registered at a time).
 
 - **adb:** `ADB` if set, else `adb` on PATH, else `~/Library/Android/sdk/platform-tools/adb` (also `ANDROID_HOME` / `ANDROID_SDK_ROOT`).
@@ -147,6 +148,7 @@ Every command prints JSON; add `--human` for people. The device is chosen by `--
 | `phone setup` / `phone doctor` | Preparation and checks |
 | `phone read [--app] [--all] [--full] [--raw] [--max-age ms]` | Elements on screen. `--all` includes off-screen ones, `--full` adds identifiers (about 0.5 s more), `--raw` attaches every numbered attribute |
 | `phone find <selector>` | Elements matching a selector |
+| `phone wait <selector> [--gone] [--timeout ms]` | Wait until an element shows (or with `--gone` leaves); reads only, safe to repeat |
 | `phone tap <selector \| x,y> [--long ms] [--double]` | Tap the middle of an element, or a point |
 | `phone swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | Swipe. `--drag` slows to a stop before lifting, so nothing coasts |
 | `phone scroll <up\|down> [--until selector] [--max N]` | One step, or until an element shows |
@@ -158,7 +160,7 @@ Every command prints JSON; add `--human` for people. The device is chosen by `--
 | `phone batch <file \| ->` | A JSON array of steps in one call |
 | `phone script <file \| -> [--arg k=v]` | Run JavaScript as given (`-` reads stdin) |
 | `phone run <name> [--arg k=v]` / `phone scripts` | Run a saved script, list saved scripts |
-| `phone mcp [--tools a,b]` | MCP server on stdio |
+| `phone mcp [--tools a,b]` | MCP server on stdio. Starts even with several phones connected; every phone tool takes an optional `udid`, and `phone_devices` lists them |
 | `phone dnd <on\|off\|status>` | Turn Do Not Disturb on, put the earlier Focus back, or show the current state |
 | `phone stop` | Stop the resident process for this phone |
 

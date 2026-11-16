@@ -85,6 +85,7 @@ async fn dispatch_android_command(a: &mut AndroidSession, cmd: &str, args: &Valu
     match cmd {
         "read" => Box::pin(a.cmd_read(parse_args(args)?)).await,
         "find" => Box::pin(a.cmd_find(parse_args(args)?)).await,
+        "wait" => Box::pin(crate::steps::Steps::cmd_wait(a, args)).await,
         "tap" => Box::pin(a.cmd_tap(parse_args(args)?)).await,
         "swipe" => Box::pin(a.cmd_swipe(parse_args(args)?)).await,
         "scroll" => Box::pin(a.cmd_scroll(parse_args(args)?)).await,
@@ -121,6 +122,7 @@ async fn dispatch_ios(s: &mut Session, cmd: &str, args: &Value) -> Res {
     match cmd {
         "read" => Box::pin(s.cmd_read(parse_args(args)?)).await,
         "find" => Box::pin(s.cmd_find(parse_args(args)?)).await,
+        "wait" => Box::pin(crate::steps::Steps::cmd_wait(s, args)).await,
         "tap" => Box::pin(s.cmd_tap(parse_args(args)?)).await,
         "swipe" => Box::pin(s.cmd_swipe(parse_args(args)?)).await,
         "scroll" => Box::pin(s.cmd_scroll(parse_args(args)?)).await,
@@ -172,6 +174,8 @@ pub fn budget(cmd: &str) -> Duration {
         "script" => Duration::from_secs(script::MAX_TIMEOUT_SECS + 60),
         "batch" => Duration::from_secs(600),
         "doctor" => Duration::from_secs(120),
+        // Up to 80 s of waiting, plus the last reading.
+        "wait" => Duration::from_secs(95),
         _ => Duration::from_secs(90),
     }
 }

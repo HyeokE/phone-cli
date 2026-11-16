@@ -50,6 +50,7 @@ $ phone run settings-version
 
 같은 명령·인자·JSON 결과가 `adb`를 거쳐 안드로이드 폰에서도 동작합니다. 앱은 설치하지 않습니다. 기본으로는 작은 도우미(`phone-helper.jar`, 바이너리에 내장, 약 22 KB)를 `/data/local/tmp`에 올려 scrcpy처럼 `app_process`로 실행합니다. 도우미는 UiAutomation으로 화면을 읽고, 터치·키를 직접 넣고, 클립보드로 글을 붙여 넣고, 앱 이름을 읽습니다. 재시동하면 사라지고, 해시가 다를 때만 다시 올립니다. 도우미를 끄거나 실행할 수 없으면 셸 도구(`uiautomator dump`, `input tap|swipe|motionevent|keyevent|text`, `am` / `pm` / `cmd package`, `screencap -p`)로 자동 전환합니다. 결과의 `backend`(`"helper"` 또는 `"adb"`)가 어느 경로였는지 알려 줍니다.
 
+- **폰 하나에 상주 프로세스 하나:** 도우미를 띄운 쪽(`<호스트> <상주 프로세스 pid>`)을 `/data/local/tmp/phone-helper.owner`에 적습니다. 같은 컴퓨터에서 같은 폰에 두 번째 상주 프로세스(다른 `PHONE_STATE_DIR`, 다른 바이너리)가 뜨면, 살아 있는 쪽의 도우미를 끄지 않고 `phone_in_use`로 실패합니다.
 - **도우미 켜고 끄기:** `config.toml`의 `[android] helper = false`, 또는 `PHONE_ANDROID_HELPER=0`으로 시작한 상주 프로세스는 셸 도구만 씁니다. 도우미가 실패하면 기다리는 시간을 늘려 가며 다시 시도하고, 그동안은 셸 도구가 처리합니다. `phone stop`은 폰의 도우미도 끝내고, 새 도우미는 남아 있던 도우미를 먼저 끝냅니다(UiAutomation 연결은 한 번에 하나만 등록됨).
 
 - **adb 위치:** `ADB` 환경 변수, PATH의 `adb`, `~/Library/Android/sdk/platform-tools/adb`(그리고 `ANDROID_HOME` / `ANDROID_SDK_ROOT`) 순서로 찾습니다.
@@ -150,6 +151,7 @@ Apple 기기 연결 서비스가 필요합니다. CLI·MCP·스크립트는 선�
 | `phone setup` / `phone doctor` | 준비 · 점검 |
 | `phone read [--app] [--all] [--full] [--raw] [--max-age ms]` | 화면 요소 목록. `--all` 화면 밖 포함, `--full` 식별자 포함(약 0.5초 더), `--raw` 번호 붙은 속성 전부 |
 | `phone find <셀렉터>` | 셀렉터에 맞는 요소 |
+| `phone wait <셀렉터> [--gone] [--timeout ms]` | 요소가 나타날 때까지(`--gone`이면 사라질 때까지) 기다림. 읽기만 하므로 다시 해도 안전 |
 | `phone tap <셀렉터 \| x,y> [--long ms] [--double]` | 요소 가운데(또는 좌표) 탭 |
 | `phone swipe <up\|down\|left\|right \| x1,y1,x2,y2> [--duration ms] [--drag]` | 밀기. `--drag`는 멈춘 뒤 손을 떼서 관성 없이 옮깁니다 |
 | `phone scroll <up\|down> [--until 셀렉터] [--max N]` | 한 칸 스크롤, 또는 요소가 보일 때까지 |
@@ -161,7 +163,7 @@ Apple 기기 연결 서비스가 필요합니다. CLI·MCP·스크립트는 선�
 | `phone batch <파일 \| ->` | JSON 단계 배열을 한 번에 |
 | `phone script <파일 \| -> [--arg k=v]` | 자바스크립트를 바로 실행 (`-`는 표준 입력) |
 | `phone run <이름> [--arg k=v]` / `phone scripts` | 저장된 스크립트 실행 · 목록 |
-| `phone mcp [--tools a,b]` | MCP 서버 (stdio) |
+| `phone mcp [--tools a,b]` | MCP 서버 (stdio). 폰이 여러 대 연결돼 있어도 시작하고, 폰을 다루는 도구마다 `udid`를 선택적으로 받습니다. 목록은 `phone_devices` |
 | `phone dnd <on\|off\|status>` | 방해금지 모드를 켜기, 원래 집중 모드로 되돌리기, 지금 상태 보기 |
 | `phone stop` | 이 폰의 상주 프로세스 종료 |
 

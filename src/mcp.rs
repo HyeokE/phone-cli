@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 use crate::{
-    client, connect,
+    client, connect, devices,
     reply::{Fail, envelope},
     script,
 };
@@ -42,9 +42,46 @@ fn tool(name: &str, description: &str, properties: Value, required: &[&str]) -> 
     })
 }
 
+/// Tools that do not act on one phone, so they take no `udid`.
+const DEVICELESS: &[&str] = &["phone_scripts", "phone_devices"];
+
+const UDID_DOC: &str = "Which phone: an iPhone UDID or an Android adb serial, as phone_devices lists them. \
+Leave it out to use the server's phone (its --udid, PHONE_UDID, config, or the only phone connected). \
+Keep one phone per task.";
+
+/// Every tool, each phone tool with an optional `udid`.
 fn tools() -> Vec<Value> {
+    let mut all = base_tools();
+    for t in &mut all {
+        let name = t["name"].as_str().unwrap_or("").to_string();
+        if !DEVICELESS.contains(&name.as_str()) {
+            t["inputSchema"]["properties"]["udid"] = json!({ "type": "string", "description": UDID_DOC });
+        }
+    }
+    all
+}
+
+fn base_tools() -> Vec<Value> {
     let selector = json!({ "description": SELECTOR_DOC, "type": ["string", "object"] });
     vec![
+        tool(
+            "phone_devices",
+            "List the connected phones (iPhones and Android phones) with udid, platform, connection and readiness. \
+             Use it to pick the `udid` the other tools take when more than one phone is connected.",
+            json!({}),
+            &[],
+        ),
+        tool(
+            "phone_wait",
+            "Wait until an element is on screen, or with gone=true until it has left (a spinner, a sheet, a toast). \
+             Sends no input, so it is always safe to call again. Fails with wait_timeout and a screen summary.",
+            json!({
+                "selector": selector.clone(),
+                "gone": { "type": "boolean", "description": "Wait for the element to disappear instead." },
+                "timeout_ms": { "type": "integer", "description": "Give up after this long (default 8000, at most 80000)." },
+            }),
+            &["selector"],
+        ),
         tool(
             "phone_connect",
             "Verify and save the selected paired iPhone's IP address when automatic discovery fails. Requires prior USB trust on this computer. Checks a paired session and reported UDID before saving. Subsequent tools and scripts use the address; this does not establish developer-service readiness or repair Apple's discovery list.",
@@ -192,22 +229,45 @@ fn tools() -> Vec<Value> {
     ]
 }
 
-async fn call(udid: &str, name: &str, args: Value) -> Value {
+/// The phone a call is for: its own `udid`, else the server's, else the
+/// only phone connected now (one may have been plugged in since the start).
+async fn phone_for(default: Option<&str>, args: &mut Value) -> Result<String, Fail> {
+    let given = match args.as_object_mut().and_then(|m| m.remove("udid")) {
+        None | Some(Value::Null) => None,
+        Some(Value::String(u)) if !u.trim().is_empty() => Some(u.trim().to_string()),
+        Some(_) => return Err(Fail::invalid("`udid` takes a non-empty string")),
+    };
+    if let Some(u) = given.or_else(|| default.map(str::to_string)) {
+        return Ok(u);
+    }
+    client::resolve_udid(None).await
+}
+
+async fn call(default: Option<&str>, name: &str, args: Value) -> Value {
     let started = std::time::Instant::now();
-    let args = if args.is_null() { json!({}) } else { args };
+    let mut args = if args.is_null() { json!({}) } else { args };
+    match name {
+        "phone_scripts" => return envelope(script::cmd_scripts(), started),
+        "phone_devices" => return envelope(devices::cmd_devices(None).await, started),
+        _ => {}
+    }
+    let udid = match phone_for(default, &mut args).await {
+        Ok(u) => u,
+        Err(f) => return envelope(Err(f), started),
+    };
+    let udid = udid.as_str();
     match name {
         "phone_connect" => match serde_json::from_value::<connect::Args>(args) {
             Ok(args) => envelope(connect::run(udid, args).await, started),
             Err(e) => envelope(Err(Fail::invalid(e.to_string())), started),
         },
-        "phone_scripts" => envelope(script::cmd_scripts(), started),
         "phone_script" | "phone_run" => match script_request(name, &args) {
             Ok(request) => client::request(udid, "script", request).await,
             Err(f) => envelope(Err(f), started),
         },
         "phone_read" | "phone_find" | "phone_tap" | "phone_swipe" | "phone_scroll" | "phone_type" | "phone_key"
         | "phone_button" | "phone_launch" | "phone_apps" | "phone_screenshot" | "phone_batch" | "phone_doctor"
-        | "phone_dnd" => {
+        | "phone_dnd" | "phone_wait" => {
             let cmd = name.trim_start_matches("phone_");
             let args = if cmd == "apps" { Value::Null } else { args };
             client::request(udid, cmd, args).await
@@ -263,7 +323,7 @@ fn offered(only: &[String]) -> Vec<Value> {
         .collect()
 }
 
-async fn handle(udid: &str, only: &[String], msg: &Value) -> Option<Value> {
+async fn handle(udid: Option<&str>, only: &[String], msg: &Value) -> Option<Value> {
     let method = msg.get("method").and_then(|m| m.as_str())?;
     // Notifications carry no id and get no answer.
     let id = msg.get("id")?;
@@ -281,7 +341,7 @@ async fn handle(udid: &str, only: &[String], msg: &Value) -> Option<Value> {
                     "protocolVersion": version,
                     "capabilities": { "tools": {} },
                     "serverInfo": { "name": "phone", "version": env!("CARGO_PKG_VERSION") },
-                    "instructions": "Operate a real iPhone or Android phone through its accessibility tree. Read the screen with phone_read, act with phone_tap / phone_type / phone_scroll, \
+                    "instructions": "Operate a real iPhone or Android phone through its accessibility tree. With more than one phone connected, call phone_devices and pass `udid` on each call. Read the screen with phone_read, wait with phone_wait, act with phone_tap / phone_type / phone_scroll, \
                                      and check `screen_changed` in each result. For typing also check value_changed and warning: verified only means read back. Never automatically retype on a warning. For a known sequence prefer one phone_script (or a saved one with phone_run): one call instead of one per step. \
                                      Outcome \"unknown\" means input may have gone out: read the screen, never resend.",
                 }),
@@ -314,7 +374,7 @@ async fn handle(udid: &str, only: &[String], msg: &Value) -> Option<Value> {
 }
 
 /// Serve MCP on stdio. `only` limits the tools on offer (empty = all).
-pub async fn serve(udid: String, only: Vec<String>) -> Result<()> {
+pub async fn serve(udid: Option<String>, only: Vec<String>) -> Result<()> {
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
     let mut stdout = tokio::io::stdout();
     while let Some(line) = lines.next_line().await? {
@@ -323,7 +383,7 @@ pub async fn serve(udid: String, only: Vec<String>) -> Result<()> {
             continue;
         }
         let reply = match serde_json::from_str::<Value>(line) {
-            Ok(msg) => handle(&udid, &only, &msg).await,
+            Ok(msg) => handle(udid.as_deref(), &only, &msg).await,
             Err(_) => Some(error(&Value::Null, -32700, "parse error")),
         };
         if let Some(reply) = reply {
@@ -347,6 +407,7 @@ mod tests {
         for expected in [
             "phone_read", "phone_find", "phone_tap", "phone_swipe", "phone_scroll", "phone_type", "phone_button",
             "phone_launch", "phone_batch", "phone_script", "phone_run", "phone_scripts", "phone_doctor", "phone_connect",
+            "phone_devices", "phone_wait",
         ] {
             assert!(names.contains(&expected.to_string()), "missing {expected}");
         }
@@ -354,6 +415,30 @@ mod tests {
             assert_eq!(t["inputSchema"]["type"], "object");
             assert!(!t["description"].as_str().unwrap().is_empty());
         }
+    }
+
+    #[test]
+    fn phone_tools_take_a_udid_and_deviceless_ones_do_not() {
+        for t in tools() {
+            let name = t["name"].as_str().unwrap();
+            let has = t["inputSchema"]["properties"].get("udid").is_some();
+            assert_eq!(has, !DEVICELESS.contains(&name), "{name}");
+            assert!(
+                !t["inputSchema"]["required"].as_array().unwrap().iter().any(|r| r == "udid"),
+                "{name}: udid must stay optional"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_call_takes_its_own_udid_over_the_servers() {
+        let mut args = json!({ "udid": " R39N402N5SB ", "selector": "x" });
+        assert_eq!(phone_for(Some("SERVER"), &mut args).await.unwrap(), "R39N402N5SB");
+        assert!(args.get("udid").is_none(), "udid is not passed on to the daemon");
+        let mut args = json!({ "selector": "x" });
+        assert_eq!(phone_for(Some("SERVER"), &mut args).await.unwrap(), "SERVER");
+        let mut args = json!({ "udid": 5 });
+        assert_eq!(phone_for(Some("SERVER"), &mut args).await.unwrap_err().code, "invalid_argument");
     }
 
     #[test]
@@ -377,7 +462,7 @@ mod tests {
     async fn connect_rejects_missing_invalid_and_extra_arguments_before_contacting_a_phone() {
         for args in [json!({}), json!({"ip": "not-an-ip"}),
                      json!({"ip": "192.0.2.1", "submit": true})] {
-            let result = call("NO-PHONE", "phone_connect", args).await;
+            let result = call(Some("NO-PHONE"), "phone_connect", args).await;
             assert_eq!(result["ok"], false);
             assert_eq!(result["outcome"], "not_sent");
             assert_eq!(result["error"]["code"], "invalid_argument");
@@ -387,20 +472,20 @@ mod tests {
     #[tokio::test]
     async fn initialize_and_notifications() {
         let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}});
-        let r = handle("X", &[], &init).await.unwrap();
+        let r = handle(Some("X"), &[], &init).await.unwrap();
         assert_eq!(r["result"]["protocolVersion"], "2024-11-05");
         assert_eq!(r["result"]["serverInfo"]["name"], "phone");
         let note = json!({"jsonrpc":"2.0","method":"notifications/initialized"});
-        assert!(handle("X", &[], &note).await.is_none());
+        assert!(handle(Some("X"), &[], &note).await.is_none());
         let unknown = json!({"jsonrpc":"2.0","id":2,"method":"nope"});
-        assert_eq!(handle("X", &[], &unknown).await.unwrap()["error"]["code"], -32601);
+        assert_eq!(handle(Some("X"), &[], &unknown).await.unwrap()["error"]["code"], -32601);
     }
 
     #[tokio::test]
     async fn tools_can_be_limited() {
         let only = vec!["read".to_string(), "phone_find".to_string()];
         let list = json!({"jsonrpc":"2.0","id":1,"method":"tools/list"});
-        let r = handle("X", &only, &list).await.unwrap();
+        let r = handle(Some("X"), &only, &list).await.unwrap();
         let names: Vec<&str> = r["result"]["tools"]
             .as_array()
             .unwrap()
@@ -410,6 +495,6 @@ mod tests {
         assert_eq!(names, ["phone_read", "phone_find"]);
         // A tool that is not on offer cannot be called either.
         let call = json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"phone_tap","arguments":{"target":"x"}}});
-        assert_eq!(handle("X", &only, &call).await.unwrap()["error"]["code"], -32602);
+        assert_eq!(handle(Some("X"), &only, &call).await.unwrap()["error"]["code"], -32602);
     }
 }
